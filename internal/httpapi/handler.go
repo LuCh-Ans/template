@@ -5,11 +5,9 @@ import (
 	"log/slog"
 	"net/http"
 	"time"
-
 	"github.com/go-chi/chi/v5"
 	"github.com/go-chi/chi/v5/middleware"
 	"github.com/jackc/pgx/v5/pgxpool"
-
 	api "github.com/LuCh-Ans/template/internal/generated"
 )
 
@@ -44,12 +42,12 @@ func NewRouter(h *Handler) http.Handler {
 	})
 }
 
-// Health — liveness: процесс жив в базу не ходит специально
+// Health - liveness: процесс жив в базу не ходит специально
 func (h *Handler) Health(w http.ResponseWriter, r *http.Request) {
 	writeJSON(w, http.StatusOK, api.HealthResponse{Status: api.Ok})
 }
 
-// Ready — readiness: готов ли сервис обслуживать запросы, то есть доступна ли база
+// Ready -readiness: готов ли сервис обслуживать запросы, то есть доступна ли база
 func (h *Handler) Ready(w http.ResponseWriter, r *http.Request) {
 	ctx, cancel := context.WithTimeout(r.Context(), readyTimeout)
 	defer cancel()
