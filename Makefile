@@ -17,6 +17,12 @@ migrate:
 migrate-down:
 	go tool goose -dir $(MIGRATIONS_DIR) postgres "$(DATABASE_URL)" down
 
+migrate-status:
+	go tool goose -dir $(MIGRATIONS_DIR) postgres "$(DATABASE_URL)" status
+
+psql:
+	psql "$(DATABASE_URL)"
+
 generate:
 	@mkdir -p internal/generated
 	go tool oapi-codegen -config oapi-codegen.yaml contracts/openapi/trip-service.openapi.yaml
