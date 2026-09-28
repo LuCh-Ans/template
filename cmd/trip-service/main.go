@@ -24,11 +24,13 @@ func main() {
 }
 
 func run() error {
+	// Загрузка конфигурации, читаем переменные окружения
 	cfg, err := config.Load()
 	if err != nil {
 		return err
 	}
 
+	// Создается json логгер
 	logger := slog.New(slog.NewJSONHandler(os.Stdout, &slog.HandlerOptions{Level: cfg.LogLevel}))
 	slog.SetDefault(logger)
 
@@ -36,26 +38,31 @@ func run() error {
 	ctx, stop := signal.NotifyContext(context.Background(), syscall.SIGINT, syscall.SIGTERM)
 	defer stop()
 
+	// Подключение к бд
 	pool, err := postgres.NewPool(ctx, cfg.DB)
 	if err != nil {
 		return err
 	}
 	defer pool.Close() // Закрывается последним после остановки сервера
 	logger.Info("connected to database")
-	txManager := postgres.NewTxManager(pool)
-	tripRepo := postgres.NewTripRepository(txManager, cfg.DB.QueryTimeout)
-	tripService := trip.NewService(txManager, tripRepo)
-	handler := httpapi.NewHandler(pool, tripService, logger)
 
+	// Зависимости
+	txManager := postgres.NewTxManager(pool, cfg.DB.QueryTimeout) // Менеджер транзакцийй
+	tripRepo := postgres.NewTripRepository(txManager, cfg.DB.QueryTimeout) // Репозиторий поездок для работы с таблицами бд
+	tripService := trip.NewService(txManager, tripRepo) // Бизнес-логика для работы с поездками
+	handler := httpapi.NewHandler(pool, tripService, logger, cfg.DB.QueryTimeout) // HTTP-обраотчики 
+
+	// Создание HTTP сервера
 	srv := &http.Server{
-		Addr:              cfg.HTTP.Addr,
-		Handler:           httpapi.NewRouter(handler),
-		ReadTimeout:       cfg.HTTP.ReadTimeout,
+		Addr: cfg.HTTP.Addr,
+		Handler: httpapi.NewRouter(handler),
+		ReadTimeout: cfg.HTTP.ReadTimeout,
 		ReadHeaderTimeout: cfg.HTTP.ReadHeaderTimeout,
-		WriteTimeout:      cfg.HTTP.WriteTimeout,
-		IdleTimeout:       cfg.HTTP.IdleTimeout,
+		WriteTimeout: cfg.HTTP.WriteTimeout,
+		IdleTimeout: cfg.HTTP.IdleTimeout,
 	}
 
+	// Запуск сервера
 	serverErr := make(chan error, 1)
 	go func() {
 		logger.Info("http server started", "addr", cfg.HTTP.Addr)
@@ -72,6 +79,7 @@ func run() error {
 		return fmt.Errorf("http server: %w", err)
 	}
 
+	// Graceful shutdown
 	shutdownCtx, cancel := context.WithTimeout(context.Background(), cfg.ShutdownTimeout)
 	defer cancel()
 

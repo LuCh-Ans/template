@@ -7,13 +7,16 @@ import (
 	"fmt"
 	"io"
 	"net/http"
-	"github.com/google/uuid"
+
 	"github.com/LuCh-Ans/template/internal/domain"
 	api "github.com/LuCh-Ans/template/internal/generated"
 	"github.com/LuCh-Ans/template/internal/trip"
+	"github.com/google/uuid"
 )
 
 const maxBodyBytes = 1 << 20
+
+// Хендлеры
 
 func (h *Handler) CreateTrip(w http.ResponseWriter, r *http.Request, params api.CreateTripParams) {
 	req, err := decodeTripData(w, r)
@@ -56,6 +59,7 @@ func (h *Handler) FinishTrip(w http.ResponseWriter, r *http.Request, tripId api.
 	writeJSON(w, http.StatusOK, toAPITrip(t))
 }
 
+// Превращает доменную ошибку в HTTP ответ
 func (h *Handler) writeError(w http.ResponseWriter, r *http.Request, err error) {
 	switch {
 	case errors.Is(err, domain.ErrTripNotFound):
@@ -70,16 +74,17 @@ func (h *Handler) writeError(w http.ResponseWriter, r *http.Request, err error) 
 	}
 }
 
+// Чтение и проверка тела
 func decodeTripData(w http.ResponseWriter, r *http.Request) (api.TripData, error) {
 	body, err := io.ReadAll(http.MaxBytesReader(w, r.Body, maxBodyBytes))
 	if err != nil {
 		return api.TripData{}, errors.New("cannot read request body")
 	}
-
+	// Есть ли обязательные поля
 	if err := checkRequired(body); err != nil {
 		return api.TripData{}, err
 	}
-
+	// Строгий разбор
 	dec := json.NewDecoder(bytes.NewReader(body))
 	dec.DisallowUnknownFields()
 	var req api.TripData

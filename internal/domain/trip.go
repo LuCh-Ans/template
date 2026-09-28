@@ -6,6 +6,7 @@ import (
 	"github.com/google/uuid"
 )
 
+// Тип для статуса проверок
 type TripStatus string
 
 const (
@@ -13,11 +14,13 @@ const (
 	StatusCompleted TripStatus = "completed"
 )
 
+// Точка на карте
 type Point struct {
 	Latitude float64
 	Longitude float64
 }
 
+// Поездка
 type Trip struct {
 	ID uuid.UUID
 	UserID uuid.UUID
@@ -30,6 +33,7 @@ type Trip struct {
 	FinishedAt *time.Time
 }
 
+// Доменные ошибки
 var (
 	ErrTripNotFound = errors.New("trip not found")
 	ErrTripCompleted = errors.New("trip already completed")

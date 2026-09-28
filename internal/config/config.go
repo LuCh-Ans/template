@@ -9,6 +9,7 @@ import (
 	"time"
 )
 
+// Главный крнтейнер конфигурации приложения
 type Config struct {
 	HTTP HTTPConfig
 	DB DBConfig
@@ -16,6 +17,7 @@ type Config struct {
 	ShutdownTimeout time.Duration
 }
 
+// Группирует все параметры HTTP сервера
 type HTTPConfig struct {
 	Addr string
 	ReadTimeout time.Duration
@@ -24,15 +26,18 @@ type HTTPConfig struct {
 	IdleTimeout time.Duration
 }
 
+// Группирует параметрв пула соединений с бд
 type DBConfig struct {
 	URL string
 	MaxConns int32
 	MinConns int32
 	ConnectTimeout  time.Duration
-	QueryTimeout    time.Duration
+	QueryTimeout time.Duration
 	MaxConnLifetime time.Duration
 }
 
+// Главная точка входа, читает все переменные окружения 
+// Возвращает либо готовую конфигурацию, либо одну объединенную ошибку
 func Load() (Config, error) {
 	var l loader
 
@@ -72,10 +77,13 @@ func Load() (Config, error) {
 	return cfg, nil
 }
 
+// Хранит все ошибки, которые произошли при чтении переменных окружения
 type loader struct{ errs []error }
 
+// Добавляет ошибку в список
 func (l *loader) fail(err error) { l.errs = append(l.errs, err) }
 
+// Читает обязательную переменную окружения
 func (l *loader) required(key string) string {
 	v, ok := os.LookupEnv(key)
 	if !ok || v == "" {
@@ -84,6 +92,7 @@ func (l *loader) required(key string) string {
 	return v
 }
 
+// Читает необязательную переменную окружения
 func (l *loader) optional(key, def string) string {
 	if v, ok := os.LookupEnv(key); ok && v != "" {
 		return v
@@ -91,6 +100,7 @@ func (l *loader) optional(key, def string) string {
 	return def
 }
 
+// Читает строку с временем и проверяет значение
 func (l *loader) duration(key, def string) time.Duration {
 	raw := l.optional(key, def)
 	d, err := time.ParseDuration(raw)
@@ -104,6 +114,7 @@ func (l *loader) duration(key, def string) time.Duration {
 	return d
 }
 
+// Читает строку как число
 func (l *loader) integer(key, def string) int32 {
 	raw := l.optional(key, def)
 	n, err := strconv.ParseInt(raw, 10, 32)

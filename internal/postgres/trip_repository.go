@@ -14,21 +14,25 @@ import (
 	"github.com/jackc/pgx/v5/pgconn"
 )
 
+// Коды ошибок postgres
 const (
-	pgUniqueViolation      = "23505"
+	pgUniqueViolation = "23505"
 	driverActiveConstraint = "trips_driver_active_uniq"
 )
 
+// Билдер squirrel
 var psql = sq.StatementBuilder.PlaceholderFormat(sq.Dollar)
 
+// Колонки поездки
 var tripColumns = []string{
 	"id", "user_id", "driver_id",
 	"start_latitude", "start_longitude", "end_latitude", "end_longitude",
 	"price", "status", "started_at", "finished_at",
 }
 
+// Репозиторий поездок
 type TripRepository struct {
-	tx           *TxManager
+	tx *TxManager
 	queryTimeout time.Duration
 }
 
@@ -36,6 +40,7 @@ func NewTripRepository(tx *TxManager, queryTimeout time.Duration) *TripRepositor
 	return &TripRepository{tx: tx, queryTimeout: queryTimeout}
 }
 
+// Вставка поездки
 func (r *TripRepository) Create(ctx context.Context, t domain.Trip) error {
 	query, args, err := psql.Insert("trips").
 		Columns(tripColumns...).
@@ -64,6 +69,7 @@ func (r *TripRepository) Create(ctx context.Context, t domain.Trip) error {
 	return nil
 }
 
+// Запись в журнал
 func (r *TripRepository) AddStatusChange(
 	ctx context.Context,
 	tripID uuid.UUID,
@@ -93,6 +99,7 @@ func (r *TripRepository) AddStatusChange(
 	return nil
 }
 
+// Найти поездку по id
 func (r *TripRepository) GetByID(ctx context.Context, id uuid.UUID) (domain.Trip, error) {
 	query, args, err := psql.Select(tripColumns...).
 		From("trips").
@@ -115,8 +122,7 @@ func (r *TripRepository) GetByID(ctx context.Context, id uuid.UUID) (domain.Trip
 	return trip, nil
 }
 
-// FinishActive переводит активную поездку в completed одним UPDATE
-// updated == false: активной поездки с таким id нет — либо её нет вообще, либо она уже завершена
+// Переводит активную поездку в completed одним UPDATE
 func (r *TripRepository) FinishActive(ctx context.Context, id uuid.UUID, finishedAt time.Time) (trip domain.Trip, updated bool, err error) {
 	query, args, err := psql.Update("trips").
 		Set("status", string(domain.StatusCompleted)).
