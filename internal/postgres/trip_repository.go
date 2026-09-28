@@ -16,7 +16,7 @@ import (
 
 // Коды ошибок postgres
 const (
-	pgUniqueViolation = "23505"
+	pgUniqueViolation      = "23505"
 	driverActiveConstraint = "trips_driver_active_uniq"
 )
 
@@ -32,7 +32,7 @@ var tripColumns = []string{
 
 // Репозиторий поездок
 type TripRepository struct {
-	tx *TxManager
+	tx           *TxManager
 	queryTimeout time.Duration
 }
 
@@ -150,7 +150,7 @@ func (r *TripRepository) FinishActive(ctx context.Context, id uuid.UUID, finishe
 
 func scanTrip(row pgx.Row) (domain.Trip, error) {
 	var (
-		t domain.Trip
+		t      domain.Trip
 		status string
 	)
 	err := row.Scan(
@@ -159,5 +159,12 @@ func scanTrip(row pgx.Row) (domain.Trip, error) {
 		&t.Price, &status, &t.StartedAt, &t.FinishedAt,
 	)
 	t.Status = domain.TripStatus(status)
+
+	// pgx отдаёт TIMESTAMPTZ в часовом поясе машины, приводим к UTC
+	t.StartedAt = t.StartedAt.UTC()
+	if t.FinishedAt != nil {
+		finished := t.FinishedAt.UTC()
+		t.FinishedAt = &finished
+	}
 	return t, err
 }

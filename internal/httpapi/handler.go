@@ -2,10 +2,13 @@ package httpapi
 
 import (
 	"context"
+	"errors"
+	"fmt"
 	"log/slog"
 	"net/http"
 	"runtime/debug"
 	"time"
+
 	api "github.com/LuCh-Ans/template/internal/generated"
 	"github.com/LuCh-Ans/template/internal/trip"
 	"github.com/go-chi/chi/v5"
@@ -17,9 +20,9 @@ const readyTimeout = time.Second
 
 // Рализует сгенерированный api.ServerInterface, адаптер междк HTTP и сервисом
 type Handler struct {
-	pool *pgxpool.Pool
-	trips *trip.Service
-	logger *slog.Logger
+	pool         *pgxpool.Pool
+	trips        *trip.Service
+	logger       *slog.Logger
 	readyTimeout time.Duration
 }
 
@@ -37,9 +40,13 @@ func NewRouter(h *Handler) http.Handler {
 
 	return api.HandlerWithOptions(h, api.ChiServerOptions{
 		BaseRouter: r,
-		// Вызывается, когда сгенерированный код не смог разобрать параметры
 		ErrorHandlerFunc: func(w http.ResponseWriter, r *http.Request, err error) {
-			writeProblem(w, r, http.StatusBadRequest, "invalid_request", "Invalid request", err.Error())
+			detail := "Request parameters are invalid"
+			var formatErr *api.InvalidParamFormatError
+			if errors.As(err, &formatErr) {
+				detail = fmt.Sprintf("parameter %s has invalid format", formatErr.ParamName)
+			}
+			writeProblem(w, r, http.StatusBadRequest, "invalid_request", "Invalid request", detail)
 		},
 	})
 }
