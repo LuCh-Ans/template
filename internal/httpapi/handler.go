@@ -15,9 +15,6 @@ import (
 	"github.com/jackc/pgx/v5/pgxpool"
 )
 
-// Проверка готовности бд с таймаутом 1 секунда
-const readyTimeout = time.Second
-
 // Рализует сгенерированный api.ServerInterface, адаптер междк HTTP и сервисом
 type Handler struct {
 	pool         *pgxpool.Pool

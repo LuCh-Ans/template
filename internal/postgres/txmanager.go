@@ -5,6 +5,7 @@ import (
 	"errors"
 	"fmt"
 	"time"
+
 	"github.com/jackc/pgx/v5"
 	"github.com/jackc/pgx/v5/pgconn"
 	"github.com/jackc/pgx/v5/pgxpool"
@@ -20,16 +21,16 @@ type Executor interface {
 // Ключ для контекста
 type txKey struct{}
 
-// Менеджер 
+// Менеджер
 type TxManager struct {
-	pool *pgxpool.Pool
+	pool     *pgxpool.Pool
 	isoLevel pgx.TxIsoLevel
 	timeout  time.Duration // лимит на BEGIN, COMMIT и ROLLBACK
 }
 
 func NewTxManager(pool *pgxpool.Pool, timeout time.Duration) *TxManager {
 	return &TxManager{
-		pool: pool,
+		pool:     pool,
 		isoLevel: pgx.ReadCommitted,
 		timeout:  timeout,
 	}
@@ -58,7 +59,7 @@ func (m *TxManager) Do(ctx context.Context, fn func(ctx context.Context) error) 
 			panic(p)
 		}
 	}()
-	
+
 	// Создает новый контекст
 	if err := fn(context.WithValue(ctx, txKey{}, tx)); err != nil {
 		if rbErr := m.rollback(ctx, tx); rbErr != nil {

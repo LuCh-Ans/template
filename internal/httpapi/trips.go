@@ -26,11 +26,11 @@ func (h *Handler) CreateTrip(w http.ResponseWriter, r *http.Request, params api.
 	}
 
 	created, err := h.trips.CreateTrip(r.Context(), trip.CreateTripInput{
-		UserID: req.UserId,
+		UserID:   req.UserId,
 		DriverID: req.DriverId,
-		Start: domain.Point{Latitude: req.StartPoint.Latitude, Longitude: req.StartPoint.Longitude},
-		End: domain.Point{Latitude: req.EndPoint.Latitude, Longitude: req.EndPoint.Longitude},
-		Price: req.Price,
+		Start:    domain.Point{Latitude: req.StartPoint.Latitude, Longitude: req.StartPoint.Longitude},
+		End:      domain.Point{Latitude: req.EndPoint.Latitude, Longitude: req.EndPoint.Longitude},
+		Price:    req.Price,
 	})
 	if err != nil {
 		h.writeError(w, r, err)
@@ -160,14 +160,14 @@ func validatePoint(name string, p api.Coordinates) error {
 
 func toAPITrip(t domain.Trip) api.Trip {
 	return api.Trip{
-		Id: t.ID,
-		UserId: t.UserID,
-		DriverId: t.DriverID,
+		Id:         t.ID,
+		UserId:     t.UserID,
+		DriverId:   t.DriverID,
 		StartPoint: api.Coordinates{Latitude: t.Start.Latitude, Longitude: t.Start.Longitude},
-		EndPoint: api.Coordinates{Latitude: t.End.Latitude, Longitude: t.End.Longitude},
-		Price: t.Price,
-		Status: api.TripStatus(t.Status),
-		StartedAt: t.StartedAt,
+		EndPoint:   api.Coordinates{Latitude: t.End.Latitude, Longitude: t.End.Longitude},
+		Price:      t.Price,
+		Status:     api.TripStatus(t.Status),
+		StartedAt:  t.StartedAt,
 		FinishedAt: t.FinishedAt,
 	}
 }

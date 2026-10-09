@@ -11,50 +11,50 @@ import (
 
 // Главный крнтейнер конфигурации приложения
 type Config struct {
-	HTTP HTTPConfig
-	DB DBConfig
-	LogLevel slog.Level
+	HTTP            HTTPConfig
+	DB              DBConfig
+	LogLevel        slog.Level
 	ShutdownTimeout time.Duration
 }
 
 // Группирует все параметры HTTP сервера
 type HTTPConfig struct {
-	Addr string
-	ReadTimeout time.Duration
+	Addr              string
+	ReadTimeout       time.Duration
 	ReadHeaderTimeout time.Duration
-	WriteTimeout time.Duration
-	IdleTimeout time.Duration
+	WriteTimeout      time.Duration
+	IdleTimeout       time.Duration
 }
 
 // Группирует параметрв пула соединений с бд
 type DBConfig struct {
-	URL string
-	MaxConns int32
-	MinConns int32
+	URL             string
+	MaxConns        int32
+	MinConns        int32
 	ConnectTimeout  time.Duration
-	QueryTimeout time.Duration
+	QueryTimeout    time.Duration
 	MaxConnLifetime time.Duration
 }
 
-// Главная точка входа, читает все переменные окружения 
+// Главная точка входа, читает все переменные окружения
 // Возвращает либо готовую конфигурацию, либо одну объединенную ошибку
 func Load() (Config, error) {
 	var l loader
 
 	cfg := Config{
 		HTTP: HTTPConfig{
-			Addr: l.required("HTTP_ADDR"),
-			ReadTimeout: l.duration("HTTP_READ_TIMEOUT", "10s"),
+			Addr:              l.required("HTTP_ADDR"),
+			ReadTimeout:       l.duration("HTTP_READ_TIMEOUT", "10s"),
 			ReadHeaderTimeout: l.duration("HTTP_READ_HEADER_TIMEOUT", "5s"),
-			WriteTimeout: l.duration("HTTP_WRITE_TIMEOUT", "10s"),
-			IdleTimeout: l.duration("HTTP_IDLE_TIMEOUT", "60s"),
+			WriteTimeout:      l.duration("HTTP_WRITE_TIMEOUT", "10s"),
+			IdleTimeout:       l.duration("HTTP_IDLE_TIMEOUT", "60s"),
 		},
 		DB: DBConfig{
-			URL: l.required("DATABASE_URL"),
-			MaxConns: l.integer("DATABASE_MAX_CONNS", "10"),
-			MinConns: l.integer("DATABASE_MIN_CONNS", "2"),
-			ConnectTimeout: l.duration("DATABASE_CONNECT_TIMEOUT", "5s"),
-			QueryTimeout: l.duration("DATABASE_QUERY_TIMEOUT", "3s"),
+			URL:             l.required("DATABASE_URL"),
+			MaxConns:        l.integer("DATABASE_MAX_CONNS", "10"),
+			MinConns:        l.integer("DATABASE_MIN_CONNS", "2"),
+			ConnectTimeout:  l.duration("DATABASE_CONNECT_TIMEOUT", "5s"),
+			QueryTimeout:    l.duration("DATABASE_QUERY_TIMEOUT", "3s"),
 			MaxConnLifetime: l.duration("DATABASE_MAX_CONN_LIFETIME", "30m"),
 		},
 		ShutdownTimeout: l.duration("SHUTDOWN_TIMEOUT", "10s"),

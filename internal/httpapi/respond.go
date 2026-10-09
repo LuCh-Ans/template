@@ -9,7 +9,7 @@ import (
 	api "github.com/LuCh-Ans/template/internal/generated"
 )
 
-// Успешный json ответ 
+// Успешный json ответ
 func writeJSON(w http.ResponseWriter, status int, body any) {
 	w.Header().Set("Content-Type", "application/json")
 	w.WriteHeader(status)
@@ -18,15 +18,15 @@ func writeJSON(w http.ResponseWriter, status int, body any) {
 	}
 }
 
-// Отает об ошибке
+// Ответ об ошибке
 func writeProblem(w http.ResponseWriter, r *http.Request, status int, code, title, detail string) {
-	instance := r.URL.Path
+	instance := r.URL.Path // путь запроса, в котором произошла ошибка
 	problem := api.Problem{
-		Type: "https://tripgo.example/problems/" + strings.ReplaceAll(code, "_", "-"),
-		Title: title,
-		Status: int32(status),
-		Code: code,
-		Detail: &detail,
+		Type:     "https://tripgo.example/problems/" + strings.ReplaceAll(code, "_", "-"),
+		Title:    title,
+		Status:   int32(status),
+		Code:     code,
+		Detail:   &detail,
 		Instance: &instance,
 	}
 

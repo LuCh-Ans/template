@@ -3,12 +3,11 @@ package trip
 import (
 	"context"
 	"fmt"
-	"time"
 	"github.com/LuCh-Ans/template/internal/domain"
 	"github.com/LuCh-Ans/template/internal/postgres"
 	"github.com/google/uuid"
+	"time"
 )
-
 
 type TxManager interface {
 	Do(ctx context.Context, fn func(ctx context.Context) error) error
@@ -16,36 +15,36 @@ type TxManager interface {
 
 // Сервис поездок
 type Service struct {
-	tx TxManager // атомарность
+	tx   TxManager // атомарность
 	repo *postgres.TripRepository
-	now func() time.Time
+	now  func() time.Time
 }
 
 func NewService(tx TxManager, repo *postgres.TripRepository) *Service {
 	return &Service{
-		tx: tx,
+		tx:   tx,
 		repo: repo,
-		now: func() time.Time { return time.Now().UTC().Truncate(time.Microsecond) },
+		now:  func() time.Time { return time.Now().UTC().Truncate(time.Microsecond) },
 	}
 }
 
 type CreateTripInput struct {
-	UserID uuid.UUID
+	UserID   uuid.UUID
 	DriverID uuid.UUID
-	Start domain.Point
-	End domain.Point
-	Price int64
+	Start    domain.Point
+	End      domain.Point
+	Price    int64
 }
 
 func (s *Service) CreateTrip(ctx context.Context, in CreateTripInput) (domain.Trip, error) {
 	trip := domain.Trip{
-		ID: uuid.New(),
-		UserID: in.UserID,
-		DriverID: in.DriverID,
-		Start: in.Start,
-		End: in.End,
-		Price: in.Price,
-		Status: domain.StatusActive,
+		ID:        uuid.New(),
+		UserID:    in.UserID,
+		DriverID:  in.DriverID,
+		Start:     in.Start,
+		End:       in.End,
+		Price:     in.Price,
+		Status:    domain.StatusActive,
 		StartedAt: s.now(),
 	}
 
