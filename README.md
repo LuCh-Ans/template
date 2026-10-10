@@ -35,6 +35,8 @@ make run                       # запускает сервис на :8080
 | `make generate` | сгенерировать код из OpenAPI в `internal/generated/` |
 | `make test` | тесты с `-race` |
 | `make psql` | консоль базы |
+| `make docker-build` | собрать Docker-образ `trip-service:local` |
+| `make docker-run` | запустить образ рядом с PostgreSQL из `tripgoctl` на `:8080` |
 
 Makefile читает переменные из `.env` и экспортирует их в окружение запускаемых команд.
 
@@ -100,6 +102,25 @@ internal/generated/   код, сгенерированный из OpenAPI (не 
 migrations/           миграции goose
 contracts/            контракты курса (не редактируются)
 ```
+## Docker (задание со звёздочкой)
+
+Многостадийная сборка, `deploy/Dockerfile`:
+
+- стадия `build` на `golang:1.27-alpine`: скачивает модули и собирает статический бинарь (`CGO_ENABLED=0`);
+- итоговый образ на `gcr.io/distroless/static-debian12:nonroot`: только бинарь `/trip-service`, без shell, исходников, Go toolchain и кеша сборки;
+- процесс запускается от пользователя `nonroot` (uid 65532), не от root;
+- `.dockerignore` не пускает в контекст сборки `.git`, `.env`, `.tripgo`, `bin`, тесты, `*.md` и `trip.json`.
+
+**Размер итогового образа — 20.7 MB** (`docker images`, колонка `DISK USAGE`; в сжатом виде 4.6 MB, из них бинарь 10.7 MB).
+
+```bash
+tripgoctl environment start
+make docker-build
+make docker-run
+curl localhost:8080/ready     # {"status":"ok"}
+```
+
+Внутри контейнера `localhost` — это сам контейнер, поэтому `make docker-run` подменяет хост базы из `.env` на `host.docker.internal` — адрес компьютера-хозяина в Docker Desktop.
 
 ## Решения
 
@@ -187,6 +208,3 @@ RETURNING ...
 - `started_at` и `finished_at` выставляет сервис в UTC с точностью до микросекунд — как хранит PostgreSQL.
 - Паника в хендлере логируется со стеком и превращается в `500 internal_error` в `problem+json`.
 
-## Что не сделано
-
-Задание со звёздочкой: многостадийный Dockerfile.
