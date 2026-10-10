@@ -15,6 +15,7 @@ type Config struct {
 	DB              DBConfig
 	LogLevel        slog.Level
 	ShutdownTimeout time.Duration
+	IdempotencyTTL  time.Duration
 }
 
 // Группирует все параметры HTTP сервера
@@ -58,6 +59,7 @@ func Load() (Config, error) {
 			MaxConnLifetime: l.duration("DATABASE_MAX_CONN_LIFETIME", "30m"),
 		},
 		ShutdownTimeout: l.duration("SHUTDOWN_TIMEOUT", "10s"),
+		IdempotencyTTL:  l.duration("IDEMPOTENCY_KEY_TTL", "24h"),
 	}
 
 	if err := cfg.LogLevel.UnmarshalText([]byte(l.optional("LOG_LEVEL", "info"))); err != nil {

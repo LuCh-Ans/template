@@ -2,8 +2,9 @@ package domain
 
 import (
 	"errors"
-	"github.com/google/uuid"
 	"time"
+
+	"github.com/google/uuid"
 )
 
 // Тип для статуса проверок
@@ -35,7 +36,8 @@ type Trip struct {
 
 // Доменные ошибки
 var (
-	ErrTripNotFound  = errors.New("trip not found")
-	ErrTripCompleted = errors.New("trip already completed")
-	ErrDriverBusy    = errors.New("driver already has an active trip")
+	ErrTripNotFound        = errors.New("trip not found")
+	ErrTripCompleted       = errors.New("trip already completed")
+	ErrDriverBusy          = errors.New("driver already has an active trip")
+	ErrIdempotencyConflict = errors.New("idempotency key reused with different request")
 )

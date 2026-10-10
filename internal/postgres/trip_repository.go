@@ -148,6 +148,50 @@ func (r *TripRepository) FinishActive(ctx context.Context, id uuid.UUID, finishe
 	return trip, true, nil
 }
 
+// Пытается занять ключ идемпотентности под поездку tripID
+// true, если ключ новый или его срок истёк, теперь указывает на tripID
+// false, если ключ уже занят живой записью, это повтор или конфликт
+func (r *TripRepository) ClaimIdempotencyKey(ctx context.Context, key uuid.UUID, requestHash string, tripID uuid.UUID, ttl time.Duration) (bool, error) {
+	query, args, err := psql.Insert("idempotency_keys").
+		Columns("key", "request_hash", "trip_id").
+		Values(key, requestHash, tripID).
+		Suffix("ON CONFLICT (key) DO UPDATE"+
+			" SET request_hash = EXCLUDED.request_hash, trip_id = EXCLUDED.trip_id, created_at = now()"+
+			" WHERE idempotency_keys.created_at < now() - make_interval(secs => ?)", ttl.Seconds()).
+		ToSql()
+	if err != nil {
+		return false, fmt.Errorf("build claim idempotency key: %w", err)
+	}
+
+	ctx, cancel := context.WithTimeout(ctx, r.queryTimeout)
+	defer cancel()
+
+	tag, err := r.tx.executor(ctx).Exec(ctx, query, args...)
+	if err != nil {
+		return false, fmt.Errorf("claim idempotency key: %w", err)
+	}
+	return tag.RowsAffected() == 1, nil
+}
+
+// Возвращает хэш запроса и айдишник поездки, сохранённые под ключом
+func (r *TripRepository) GetIdempotencyKey(ctx context.Context, key uuid.UUID) (requestHash string, tripID uuid.UUID, err error) {
+	query, args, err := psql.Select("request_hash", "trip_id").
+		From("idempotency_keys").
+		Where(sq.Eq{"key": key}).
+		ToSql()
+	if err != nil {
+		return "", uuid.Nil, fmt.Errorf("build select idempotency key: %w", err)
+	}
+
+	ctx, cancel := context.WithTimeout(ctx, r.queryTimeout)
+	defer cancel()
+
+	if err := r.tx.executor(ctx).QueryRow(ctx, query, args...).Scan(&requestHash, &tripID); err != nil {
+		return "", uuid.Nil, fmt.Errorf("select idempotency key: %w", err)
+	}
+	return requestHash, tripID, nil
+}
+
 func scanTrip(row pgx.Row) (domain.Trip, error) {
 	var (
 		t      domain.Trip

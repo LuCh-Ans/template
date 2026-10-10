@@ -49,7 +49,7 @@ func run() error {
 	// Зависимости
 	txManager := postgres.NewTxManager(pool, cfg.DB.QueryTimeout)                 // Менеджер транзакцийй
 	tripRepo := postgres.NewTripRepository(txManager, cfg.DB.QueryTimeout)        // Репозиторий поездок для работы с таблицами бд
-	tripService := trip.NewService(txManager, tripRepo)                           // Бизнес-логика для работы с поездками
+	tripService := trip.NewService(txManager, tripRepo, cfg.IdempotencyTTL)       // Бизнес-логика для работы с поездками
 	handler := httpapi.NewHandler(pool, tripService, logger, cfg.DB.QueryTimeout) // HTTP-обраотчики
 
 	// Создание HTTP сервера

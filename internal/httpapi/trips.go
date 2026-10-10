@@ -25,20 +25,26 @@ func (h *Handler) CreateTrip(w http.ResponseWriter, r *http.Request, params api.
 		return
 	}
 
-	created, err := h.trips.CreateTrip(r.Context(), trip.CreateTripInput{
-		UserID:   req.UserId,
-		DriverID: req.DriverId,
-		Start:    domain.Point{Latitude: req.StartPoint.Latitude, Longitude: req.StartPoint.Longitude},
-		End:      domain.Point{Latitude: req.EndPoint.Latitude, Longitude: req.EndPoint.Longitude},
-		Price:    req.Price,
+	t, created, err := h.trips.CreateTrip(r.Context(), trip.CreateTripInput{
+		UserID:         req.UserId,
+		DriverID:       req.DriverId,
+		Start:          domain.Point{Latitude: req.StartPoint.Latitude, Longitude: req.StartPoint.Longitude},
+		End:            domain.Point{Latitude: req.EndPoint.Latitude, Longitude: req.EndPoint.Longitude},
+		Price:          req.Price,
+		IdempotencyKey: params.IdempotencyKey,
 	})
 	if err != nil {
 		h.writeError(w, r, err)
 		return
 	}
 
-	w.Header().Set("Location", "/api/v1/trips/"+created.ID.String())
-	writeJSON(w, http.StatusCreated, toAPITrip(created))
+	// Повтор с тем же Idempotency-Key: та же поездка, но 200, а не 201
+	if !created {
+		writeJSON(w, http.StatusOK, toAPITrip(t))
+		return
+	}
+	w.Header().Set("Location", "/api/v1/trips/"+t.ID.String())
+	writeJSON(w, http.StatusCreated, toAPITrip(t))
 }
 
 func (h *Handler) GetTrip(w http.ResponseWriter, r *http.Request, tripId api.TripId) {
@@ -68,6 +74,8 @@ func (h *Handler) writeError(w http.ResponseWriter, r *http.Request, err error) 
 		writeProblem(w, r, http.StatusConflict, "trip_completed", "Trip completed", "Operation is not allowed for a completed trip")
 	case errors.Is(err, domain.ErrDriverBusy):
 		writeProblem(w, r, http.StatusConflict, "driver_busy", "Driver busy", "Driver already has an active trip")
+	case errors.Is(err, domain.ErrIdempotencyConflict):
+		writeProblem(w, r, http.StatusConflict, "idempotency_conflict", "Idempotency conflict", "Idempotency-Key was already used with a different request body")
 	default:
 		h.logger.Error("internal error", "error", err, "method", r.Method, "path", r.URL.Path)
 		writeProblem(w, r, http.StatusInternalServerError, "internal_error", "Internal Server Error", "Internal server error")
