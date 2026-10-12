@@ -2,7 +2,6 @@
 export
 
 MIGRATIONS_DIR := migrations
-MIGRATIONS_DIR := migrations
 IMAGE ?= trip-service:local
 
 .PHONY: run build migrate migrate-down migrate-status psql generate test docker-build docker-run
@@ -31,7 +30,6 @@ generate:
 
 test:
 	go test -race ./...
-
 
 docker-build:
 	docker build -f deploy/Dockerfile -t $(IMAGE) .

@@ -7,7 +7,7 @@ HTTP API по контракту `contracts/openapi/trip-service.openapi.yaml`, 
 
 ## Требования
 
-- Go 1.24+
+- Go 1.27+
 - Docker (запущенный)
 - [tripgoctl](https://github.com/course-go-autumn-2026/course-infra) — локальное окружение курса
 - `psql` — необязательно, для ручных проверок

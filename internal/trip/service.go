@@ -2,8 +2,8 @@ package trip
 
 import (
 	"context"
-	"crypto/sha256"
-	"encoding/hex"
+	"crypto/sha256" // хэш для идемпотентности
+	"encoding/hex"  // хэш - строка из 64 символов
 	"fmt"
 	"time"
 
@@ -18,8 +18,8 @@ type TxManager interface {
 
 // Сервис поездок
 type Service struct {
-	tx             TxManager // атомарность
-	repo           *postgres.TripRepository
+	tx             TxManager                // открывать тарнзакции
+	repo           *postgres.TripRepository // ходить в бд
 	now            func() time.Time
 	idempotencyTTL time.Duration
 }
@@ -46,7 +46,7 @@ type CreateTripInput struct {
 // возвращается поездка, созданная первым запросом
 func (s *Service) CreateTrip(ctx context.Context, in CreateTripInput) (domain.Trip, bool, error) {
 	newTrip := domain.Trip{
-		ID:        uuid.New(),
+		ID:        uuid.New(), // придумаывем сами в го
 		UserID:    in.UserID,
 		DriverID:  in.DriverID,
 		Start:     in.Start,
@@ -60,6 +60,7 @@ func (s *Service) CreateTrip(ctx context.Context, in CreateTripInput) (domain.Tr
 		result  domain.Trip
 		created bool
 	)
+	// Вход в транзакцию
 	err := s.tx.Do(ctx, func(ctx context.Context) error {
 		if in.IdempotencyKey != nil {
 			hash := requestHash(in)
@@ -95,17 +96,17 @@ func (s *Service) CreateTrip(ctx context.Context, in CreateTripInput) (domain.Tr
 
 // Ключ уже занят, если тело то же - возвращаем ранее созданную поездку, другое - конфликт
 func (s *Service) replay(ctx context.Context, key uuid.UUID, hash string) (domain.Trip, error) {
-	storedHash, tripID, err := s.repo.GetIdempotencyKey(ctx, key)
+	storedHash, tripID, err := s.repo.GetIdempotencyKey(ctx, key) // что сохренил первый запрос
 	if err != nil {
 		return domain.Trip{}, err
 	}
 	if storedHash != hash {
-		return domain.Trip{}, domain.ErrIdempotencyConflict // 409
+		return domain.Trip{}, domain.ErrIdempotencyConflict // тот же ключ, но другое тело 409
 	}
-	return s.repo.GetByID(ctx, tripID)
+	return s.repo.GetByID(ctx, tripID) // та же поездка
 }
 
-// Отпечаток содержимого запроса по уже разобранным полям: пробелы, порядок ключей
+// Хэш содержимого запроса по уже разобранным полям: пробелы, порядок ключей
 // и регистр UUID в исходном JSON на него не влияют
 func requestHash(in CreateTripInput) string {
 	payload := fmt.Sprintf("%s|%s|%v|%v|%v|%v|%d",

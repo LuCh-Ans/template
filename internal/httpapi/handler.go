@@ -15,12 +15,12 @@ import (
 	"github.com/jackc/pgx/v5/pgxpool"
 )
 
-// Рализует сгенерированный api.ServerInterface, адаптер междк HTTP и сервисом
+// Рализует сгенерированный api.ServerInterface, адаптер между HTTP и сервисом
 type Handler struct {
-	pool         *pgxpool.Pool
-	trips        *trip.Service
+	pool         *pgxpool.Pool // только для Ready (Ping базы)
+	trips        *trip.Service // бизнес-логика
 	logger       *slog.Logger
-	readyTimeout time.Duration
+	readyTimeout time.Duration // сколько ждать Ping
 }
 
 // Если Handler перестанет соответствовать интерфейсу, проект не соберётся
@@ -33,11 +33,11 @@ func NewHandler(pool *pgxpool.Pool, trips *trip.Service, logger *slog.Logger, re
 // NewRouter собирает chi-роутер = middleware + сгенерированные маршруты
 func NewRouter(h *Handler) http.Handler {
 	r := chi.NewRouter()
-	r.Use(h.recoverer)
+	r.Use(h.recoverer) // middleware на все маршруты
 
 	return api.HandlerWithOptions(h, api.ChiServerOptions{
-		BaseRouter: r,
-		ErrorHandlerFunc: func(w http.ResponseWriter, r *http.Request, err error) {
+		BaseRouter: r, // регистрация маршрутов в роутере r
+		ErrorHandlerFunc: func(w http.ResponseWriter, r *http.Request, err error) { // ошибки problem+json
 			detail := "Request parameters are invalid"
 			var formatErr *api.InvalidParamFormatError
 			if errors.As(err, &formatErr) {
