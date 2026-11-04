@@ -94,7 +94,7 @@ func decodeTripData(w http.ResponseWriter, r *http.Request) (api.TripData, error
 	}
 	// Строгий разбор
 	dec := json.NewDecoder(bytes.NewReader(body))
-	dec.DisallowUnknownFields()
+	dec.DisallowUnknownFields() // запрет на лишние поля, чтобы не было опечаток в JSON
 	var req api.TripData
 	if err := dec.Decode(&req); err != nil {
 		return api.TripData{}, fmt.Errorf("invalid JSON: %w", err)

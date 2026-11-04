@@ -111,7 +111,7 @@ func (r *TripRepository) GetByID(ctx context.Context, id uuid.UUID) (domain.Trip
 
 	ctx, cancel := context.WithTimeout(ctx, r.queryTimeout)
 	defer cancel()
-
+	// scanTrip раскладывает строку в структуру и ставит время в UTC
 	trip, err := scanTrip(r.tx.executor(ctx).QueryRow(ctx, query, args...))
 	if errors.Is(err, pgx.ErrNoRows) {
 		return domain.Trip{}, domain.ErrTripNotFound
