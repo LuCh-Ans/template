@@ -1,4 +1,4 @@
-package postgres
+package transaction
 
 import (
 	"context"
@@ -89,7 +89,7 @@ func (m *TxManager) rollback(ctx context.Context, tx pgx.Tx) error {
 }
 
 // Возвращает транзакцию из контекста, если она есть, иначе пул
-func (m *TxManager) executor(ctx context.Context) Executor {
+func (m *TxManager) Executor(ctx context.Context) Executor {
 	if tx, ok := ctx.Value(txKey{}).(pgx.Tx); ok {
 		return tx
 	}

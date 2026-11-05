@@ -1,4 +1,4 @@
-package postgres
+package trip
 
 import (
 	"context"
@@ -7,11 +7,12 @@ import (
 	"strings"
 	"time"
 
-	"github.com/LuCh-Ans/template/internal/domain"
 	sq "github.com/Masterminds/squirrel"
 	"github.com/google/uuid"
 	"github.com/jackc/pgx/v5"
 	"github.com/jackc/pgx/v5/pgconn"
+
+	domain "github.com/LuCh-Ans/template/internal/domain/trip"
 )
 
 // Коды ошибок postgres
@@ -32,12 +33,18 @@ var tripColumns = []string{
 
 // Репозиторий поездок
 type TripRepository struct {
-	tx           *TxManager
+	tx           executorProvider
 	queryTimeout time.Duration
 }
 
-func NewTripRepository(tx *TxManager, queryTimeout time.Duration) *TripRepository {
-	return &TripRepository{tx: tx, queryTimeout: queryTimeout}
+func NewTripRepository(
+	tx executorProvider,
+	queryTimeout time.Duration,
+) *TripRepository {
+	return &TripRepository{
+		tx:           tx,
+		queryTimeout: queryTimeout,
+	}
 }
 
 // Вставка поездки
@@ -57,7 +64,7 @@ func (r *TripRepository) Create(ctx context.Context, t domain.Trip) error {
 	ctx, cancel := context.WithTimeout(ctx, r.queryTimeout)
 	defer cancel()
 
-	if _, err := r.tx.executor(ctx).Exec(ctx, query, args...); err != nil {
+	if _, err := r.tx.Executor(ctx).Exec(ctx, query, args...); err != nil {
 		var pgErr *pgconn.PgError
 		if errors.As(err, &pgErr) &&
 			pgErr.Code == pgUniqueViolation &&
@@ -93,7 +100,7 @@ func (r *TripRepository) AddStatusChange(
 	ctx, cancel := context.WithTimeout(ctx, r.queryTimeout)
 	defer cancel()
 
-	if _, err := r.tx.executor(ctx).Exec(ctx, query, args...); err != nil {
+	if _, err := r.tx.Executor(ctx).Exec(ctx, query, args...); err != nil {
 		return fmt.Errorf("insert status history: %w", err)
 	}
 	return nil
@@ -112,7 +119,7 @@ func (r *TripRepository) GetByID(ctx context.Context, id uuid.UUID) (domain.Trip
 	ctx, cancel := context.WithTimeout(ctx, r.queryTimeout)
 	defer cancel()
 	// scanTrip раскладывает строку в структуру и ставит время в UTC
-	trip, err := scanTrip(r.tx.executor(ctx).QueryRow(ctx, query, args...))
+	trip, err := scanTrip(r.tx.Executor(ctx).QueryRow(ctx, query, args...))
 	if errors.Is(err, pgx.ErrNoRows) {
 		return domain.Trip{}, domain.ErrTripNotFound
 	}
@@ -138,7 +145,7 @@ func (r *TripRepository) FinishActive(ctx context.Context, id uuid.UUID, finishe
 	ctx, cancel := context.WithTimeout(ctx, r.queryTimeout)
 	defer cancel()
 
-	trip, err = scanTrip(r.tx.executor(ctx).QueryRow(ctx, query, args...))
+	trip, err = scanTrip(r.tx.Executor(ctx).QueryRow(ctx, query, args...))
 	if errors.Is(err, pgx.ErrNoRows) {
 		return domain.Trip{}, false, nil
 	}
@@ -166,7 +173,7 @@ func (r *TripRepository) ClaimIdempotencyKey(ctx context.Context, key uuid.UUID,
 	ctx, cancel := context.WithTimeout(ctx, r.queryTimeout)
 	defer cancel()
 
-	tag, err := r.tx.executor(ctx).Exec(ctx, query, args...)
+	tag, err := r.tx.Executor(ctx).Exec(ctx, query, args...)
 	if err != nil {
 		return false, fmt.Errorf("claim idempotency key: %w", err)
 	}
@@ -186,7 +193,7 @@ func (r *TripRepository) GetIdempotencyKey(ctx context.Context, key uuid.UUID) (
 	ctx, cancel := context.WithTimeout(ctx, r.queryTimeout)
 	defer cancel()
 
-	if err := r.tx.executor(ctx).QueryRow(ctx, query, args...).Scan(&requestHash, &tripID); err != nil {
+	if err := r.tx.Executor(ctx).QueryRow(ctx, query, args...).Scan(&requestHash, &tripID); err != nil {
 		return "", uuid.Nil, fmt.Errorf("select idempotency key: %w", err)
 	}
 	return requestHash, tripID, nil

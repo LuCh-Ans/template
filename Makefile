@@ -4,8 +4,7 @@ export
 MIGRATIONS_DIR := migrations
 IMAGE ?= trip-service:local
 
-.PHONY: run build migrate migrate-down migrate-status psql generate test docker-build docker-run
-
+.PHONY: run build migrate migrate-down migrate-status psql generate test docker-build docker-run lint
 run:
 	go run ./cmd/trip-service
 
@@ -39,3 +38,6 @@ docker-run:
 		-e HTTP_ADDR=:8080 \
 		-e DATABASE_URL="$(subst localhost,host.docker.internal,$(DATABASE_URL))" \
 		$(IMAGE)
+
+lint:
+	golangci-lint run ./...

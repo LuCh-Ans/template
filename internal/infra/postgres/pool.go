@@ -3,8 +3,10 @@ package postgres
 import (
 	"context"
 	"fmt"
-	"github.com/LuCh-Ans/template/internal/config"
+
 	"github.com/jackc/pgx/v5/pgxpool"
+
+	"github.com/LuCh-Ans/template/internal/config"
 )
 
 // Создает пул соединений к бд

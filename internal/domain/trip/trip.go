@@ -1,7 +1,6 @@
-package domain
+package trip
 
 import (
-	"errors"
 	"time"
 
 	"github.com/google/uuid"
@@ -34,10 +33,13 @@ type Trip struct {
 	FinishedAt *time.Time
 }
 
-// Доменные ошибки
-var (
-	ErrTripNotFound        = errors.New("trip not found")
-	ErrTripCompleted       = errors.New("trip already completed")
-	ErrDriverBusy          = errors.New("driver already has an active trip")
-	ErrIdempotencyConflict = errors.New("idempotency key reused with different request")
-)
+// Завершает активную поездку в момент at
+func (t *Trip) Finish(at time.Time) error {
+	if t.Status != StatusActive {
+		return ErrTripCompleted
+	}
+
+	t.Status = StatusCompleted
+	t.FinishedAt = &at
+	return nil
+}

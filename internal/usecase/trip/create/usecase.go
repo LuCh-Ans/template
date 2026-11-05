@@ -1,4 +1,4 @@
-package trip
+package create
 
 import (
 	"context"
@@ -7,28 +7,28 @@ import (
 	"fmt"
 	"time"
 
-	"github.com/LuCh-Ans/template/internal/domain"
-	"github.com/LuCh-Ans/template/internal/postgres"
 	"github.com/google/uuid"
+
+	domain "github.com/LuCh-Ans/template/internal/domain/trip"
 )
 
-type TxManager interface {
-	Do(ctx context.Context, fn func(ctx context.Context) error) error
-}
-
-// Сервис поездок
-type Service struct {
-	tx             TxManager                // открывать тарнзакции
-	repo           *postgres.TripRepository // ходить в бд
+type UseCase struct {
+	tx             txManager
+	repo           tripRepository
 	now            func() time.Time
 	idempotencyTTL time.Duration
 }
 
-func NewService(tx TxManager, repo *postgres.TripRepository, idempotencyTTL time.Duration) *Service {
-	return &Service{
+func New(
+	tx txManager,
+	repo tripRepository,
+	idempotencyTTL time.Duration,
+	now func() time.Time,
+) *UseCase {
+	return &UseCase{
 		tx:             tx,
 		repo:           repo,
-		now:            func() time.Time { return time.Now().UTC().Truncate(time.Microsecond) },
+		now:            now,
 		idempotencyTTL: idempotencyTTL,
 	}
 }
@@ -44,7 +44,7 @@ type CreateTripInput struct {
 
 // Создаёт поездку, created = false это повтор запроса с тем же Idempotency-Key
 // возвращается поездка, созданная первым запросом
-func (s *Service) CreateTrip(ctx context.Context, in CreateTripInput) (domain.Trip, bool, error) {
+func (s *UseCase) CreateTrip(ctx context.Context, in CreateTripInput) (domain.Trip, bool, error) {
 	newTrip := domain.Trip{
 		ID:        uuid.New(), // придумаывем сами в го
 		UserID:    in.UserID,
@@ -53,7 +53,11 @@ func (s *Service) CreateTrip(ctx context.Context, in CreateTripInput) (domain.Tr
 		End:       in.End,
 		Price:     in.Price,
 		Status:    domain.StatusActive,
-		StartedAt: s.now(),
+		StartedAt: s.now().UTC().Truncate(time.Microsecond),
+	}
+
+	if err := newTrip.Validate(); err != nil {
+		return domain.Trip{}, false, fmt.Errorf("validate trip: %w", err)
 	}
 
 	var (
@@ -95,7 +99,7 @@ func (s *Service) CreateTrip(ctx context.Context, in CreateTripInput) (domain.Tr
 }
 
 // Ключ уже занят, если тело то же - возвращаем ранее созданную поездку, другое - конфликт
-func (s *Service) replay(ctx context.Context, key uuid.UUID, hash string) (domain.Trip, error) {
+func (s *UseCase) replay(ctx context.Context, key uuid.UUID, hash string) (domain.Trip, error) {
 	storedHash, tripID, err := s.repo.GetIdempotencyKey(ctx, key) // что сохренил первый запрос
 	if err != nil {
 		return domain.Trip{}, err
@@ -116,42 +120,4 @@ func requestHash(in CreateTripInput) string {
 	)
 	sum := sha256.Sum256([]byte(payload))
 	return hex.EncodeToString(sum[:])
-}
-
-func (s *Service) GetTrip(ctx context.Context, id uuid.UUID) (domain.Trip, error) {
-	trip, err := s.repo.GetByID(ctx, id)
-	if err != nil {
-		return domain.Trip{}, fmt.Errorf("get trip: %w", err)
-	}
-	return trip, nil
-}
-
-func (s *Service) FinishTrip(ctx context.Context, id uuid.UUID) (domain.Trip, error) {
-	var finished domain.Trip
-
-	err := s.tx.Do(ctx, func(ctx context.Context) error {
-		trip, updated, err := s.repo.FinishActive(ctx, id, s.now())
-		if err != nil {
-			return err
-		}
-
-		if !updated {
-			if _, err := s.repo.GetByID(ctx, id); err != nil {
-				return err // ErrTripNotFound 404
-			}
-			return domain.ErrTripCompleted // 409
-		}
-
-		from := domain.StatusActive
-		if err := s.repo.AddStatusChange(ctx, id, &from, domain.StatusCompleted, "finished by driver"); err != nil {
-			return err
-		}
-
-		finished = trip
-		return nil
-	})
-	if err != nil {
-		return domain.Trip{}, fmt.Errorf("finish trip: %w", err)
-	}
-	return finished, nil
 }

@@ -9,25 +9,42 @@ import (
 	"runtime/debug"
 	"time"
 
-	api "github.com/LuCh-Ans/template/internal/generated"
-	"github.com/LuCh-Ans/template/internal/trip"
 	"github.com/go-chi/chi/v5"
-	"github.com/jackc/pgx/v5/pgxpool"
+
+	api "github.com/LuCh-Ans/template/internal/generated"
+	"github.com/LuCh-Ans/template/internal/http/response"
+	createhttp "github.com/LuCh-Ans/template/internal/http/trip/create"
+	finishhttp "github.com/LuCh-Ans/template/internal/http/trip/finish"
+	gethttp "github.com/LuCh-Ans/template/internal/http/trip/get"
 )
 
 // Рализует сгенерированный api.ServerInterface, адаптер между HTTP и сервисом
 type Handler struct {
-	pool         *pgxpool.Pool // только для Ready (Ping базы)
-	trips        *trip.Service // бизнес-логика
-	logger       *slog.Logger
-	readyTimeout time.Duration // сколько ждать Ping
+	readiness     readinessChecker // Ping базы
+	createHandler *createhttp.Handler
+	logger        *slog.Logger
+	readyTimeout  time.Duration // сколько ждать Ping
+	getHandler    *gethttp.Handler
+	finishHandler *finishhttp.Handler
+	responses     *response.Writer
 }
 
 // Если Handler перестанет соответствовать интерфейсу, проект не соберётся
 var _ api.ServerInterface = (*Handler)(nil)
 
-func NewHandler(pool *pgxpool.Pool, trips *trip.Service, logger *slog.Logger, readyTimeout time.Duration) *Handler {
-	return &Handler{pool: pool, trips: trips, logger: logger, readyTimeout: readyTimeout}
+func NewHandler(readiness readinessChecker, createHandler *createhttp.Handler, getHandler *gethttp.Handler,
+	finishHandler *finishhttp.Handler, responses *response.Writer,
+	logger *slog.Logger, readyTimeout time.Duration,
+) *Handler {
+	return &Handler{
+		readiness:     readiness,
+		createHandler: createHandler,
+		getHandler:    getHandler,
+		finishHandler: finishHandler,
+		responses:     responses,
+		logger:        logger,
+		readyTimeout:  readyTimeout,
+	}
 }
 
 // NewRouter собирает chi-роутер = middleware + сгенерированные маршруты
@@ -43,7 +60,7 @@ func NewRouter(h *Handler) http.Handler {
 			if errors.As(err, &formatErr) {
 				detail = fmt.Sprintf("parameter %s has invalid format", formatErr.ParamName)
 			}
-			writeProblem(w, r, http.StatusBadRequest, "invalid_request", "Invalid request", detail)
+			h.responses.Problem(w, r, http.StatusBadRequest, "invalid_request", "Invalid request", detail)
 		},
 	})
 }
@@ -66,7 +83,7 @@ func (h *Handler) recoverer(next http.Handler) http.Handler {
 				"path", r.URL.Path,
 				"stack", string(debug.Stack()),
 			)
-			writeProblem(w, r, http.StatusInternalServerError, "internal_error", "Internal Server Error", "Internal server error")
+			h.responses.Problem(w, r, http.StatusInternalServerError, "internal_error", "Internal Server Error", "Internal server error")
 		}()
 
 		next.ServeHTTP(w, r)
@@ -75,7 +92,7 @@ func (h *Handler) recoverer(next http.Handler) http.Handler {
 
 // Жив ли процесс
 func (h *Handler) Health(w http.ResponseWriter, r *http.Request) {
-	writeJSON(w, http.StatusOK, api.HealthResponse{Status: api.Ok})
+	h.responses.JSON(w, http.StatusOK, api.HealthResponse{Status: api.Ok})
 }
 
 // Готов ли сервис обслуживать запросы, то есть доступна ли база
@@ -83,10 +100,10 @@ func (h *Handler) Ready(w http.ResponseWriter, r *http.Request) {
 	ctx, cancel := context.WithTimeout(r.Context(), h.readyTimeout)
 	defer cancel()
 
-	if err := h.pool.Ping(ctx); err != nil {
+	if err := h.readiness.Ping(ctx); err != nil {
 		h.logger.Warn("readiness check failed", "error", err)
-		writeJSON(w, http.StatusServiceUnavailable, api.HealthResponse{Status: api.Unavailable})
+		h.responses.JSON(w, http.StatusServiceUnavailable, api.HealthResponse{Status: api.Unavailable})
 		return
 	}
-	writeJSON(w, http.StatusOK, api.HealthResponse{Status: api.Ok})
+	h.responses.JSON(w, http.StatusOK, api.HealthResponse{Status: api.Ok})
 }
