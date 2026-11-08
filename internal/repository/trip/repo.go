@@ -17,6 +17,7 @@ import (
 
 // Коды ошибок postgres
 const (
+	tripStatusColumn       = "status"
 	pgUniqueViolation      = "23505"
 	driverActiveConstraint = "trips_driver_active_uniq"
 )
@@ -28,7 +29,7 @@ var psql = sq.StatementBuilder.PlaceholderFormat(sq.Dollar)
 var tripColumns = []string{
 	"id", "user_id", "driver_id",
 	"start_latitude", "start_longitude", "end_latitude", "end_longitude",
-	"price", "status", "started_at", "finished_at",
+	"price", tripStatusColumn, "started_at", "finished_at",
 }
 
 // Репозиторий поездок
@@ -135,7 +136,7 @@ func (r *TripRepository) FinishActive(ctx context.Context, id uuid.UUID, finishe
 		Set("status", string(domain.StatusCompleted)).
 		Set("finished_at", finishedAt).
 		Set("updated_at", sq.Expr("now()")).
-		Where(sq.Eq{"id": id, "status": string(domain.StatusActive)}).
+		Where(sq.Eq{"id": id, tripStatusColumn: string(domain.StatusActive)}).
 		Suffix("RETURNING " + strings.Join(tripColumns, ", ")).
 		ToSql()
 	if err != nil {
@@ -153,6 +154,27 @@ func (r *TripRepository) FinishActive(ctx context.Context, id uuid.UUID, finishe
 		return domain.Trip{}, false, fmt.Errorf("finish trip: %w", err)
 	}
 	return trip, true, nil
+}
+
+func (r *TripRepository) CountActive(ctx context.Context) (int64, error) {
+	query, args, err := psql.
+		Select("COUNT(*)").
+		From("trips").
+		Where(sq.Eq{tripStatusColumn: string(domain.StatusActive)}).
+		ToSql()
+	if err != nil {
+		return 0, fmt.Errorf("build count active trips: %w", err)
+	}
+
+	ctx, cancel := context.WithTimeout(ctx, r.queryTimeout)
+	defer cancel()
+
+	var count int64
+	if err := r.tx.Executor(ctx).QueryRow(ctx, query, args...).Scan(&count); err != nil {
+		return 0, fmt.Errorf("count active trips: %w", err)
+	}
+
+	return count, nil
 }
 
 // Пытается занять ключ идемпотентности под поездку tripID

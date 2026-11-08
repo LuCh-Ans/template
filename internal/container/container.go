@@ -2,6 +2,7 @@ package container
 
 import (
 	"context"
+	"errors"
 	"fmt"
 	"log/slog"
 	"net/http"
@@ -18,6 +19,7 @@ import (
 	gethttp "github.com/LuCh-Ans/template/internal/http/trip/get"
 	"github.com/LuCh-Ans/template/internal/infra/postgres"
 	"github.com/LuCh-Ans/template/internal/infra/postgres/transaction"
+	"github.com/LuCh-Ans/template/internal/infra/telemetry"
 	triprepo "github.com/LuCh-Ans/template/internal/repository/trip"
 	"github.com/LuCh-Ans/template/internal/usecase/trip/create"
 	"github.com/LuCh-Ans/template/internal/usecase/trip/finish"
@@ -25,28 +27,78 @@ import (
 )
 
 type Container struct {
-	Server *http.Server
-	Logger *slog.Logger
-	pool   *pgxpool.Pool
+	Server            *http.Server
+	Logger            *slog.Logger
+	pool              *pgxpool.Pool
+	shutdownTelemetry func(context.Context) error
+	tripMetrics       *telemetry.TripMetrics
 }
 
-func New(ctx context.Context, cfg config.Config) (*Container, error) {
-	logger := slog.New(slog.NewJSONHandler(os.Stdout, &slog.HandlerOptions{
-		Level: cfg.LogLevel,
-	}))
+func New(ctx context.Context, cfg config.Config) (_ *Container, err error) {
+	logger := telemetry.NewLogger(
+		os.Stdout,
+		cfg.LogLevel,
+		cfg.Telemetry.ServiceName,
+	)
+
+	// SDK должен существовать до создания пула и инструментов.
+	shutdownTelemetry, err := telemetry.Setup(ctx, cfg.Telemetry)
+	if err != nil {
+		return nil, fmt.Errorf("initialize telemetry: %w", err)
+	}
+
+	app := &Container{
+		Logger:            logger,
+		shutdownTelemetry: shutdownTelemetry,
+	}
+
+	// При ошибке сборки закрываем всё, что успели создать
+	defer func() {
+		if err == nil {
+			return
+		}
+
+		cleanupCtx, cancel := context.WithTimeout(
+			context.WithoutCancel(ctx),
+			cfg.ShutdownTimeout,
+		)
+		defer cancel()
+
+		err = errors.Join(err, app.Close(cleanupCtx))
+	}()
 
 	pool, err := postgres.NewPool(ctx, cfg.DB)
 	if err != nil {
 		return nil, fmt.Errorf("initialize postgres: %w", err)
 	}
+	app.pool = pool
 	logger.Info("connected to database")
 
 	txManager := transaction.NewTxManager(pool, cfg.DB.QueryTimeout)
 	tripRepo := triprepo.NewTripRepository(txManager, cfg.DB.QueryTimeout)
 
-	createTrip := create.New(txManager, tripRepo, cfg.IdempotencyTTL, time.Now)
+	tripMetrics, err := telemetry.NewTripMetrics(tripRepo)
+	if err != nil {
+		return nil, fmt.Errorf("initialize trip metrics: %w", err)
+	}
+	app.tripMetrics = tripMetrics
+
+	createTrip := create.New(
+		logger,
+		tripMetrics,
+		txManager,
+		tripRepo,
+		cfg.IdempotencyTTL,
+		time.Now,
+	)
 	getTrip := get.New(tripRepo)
-	finishTrip := finish.New(txManager, tripRepo, time.Now)
+	finishTrip := finish.New(
+		logger,
+		tripMetrics,
+		txManager,
+		tripRepo,
+		time.Now,
+	)
 
 	responses := response.New(logger)
 
@@ -63,22 +115,35 @@ func New(ctx context.Context, cfg config.Config) (*Container, error) {
 		logger,
 		cfg.DB.QueryTimeout,
 	)
-	server := &http.Server{
+
+	router, err := httpapi.NewRouter(handler)
+	if err != nil {
+		return nil, err
+	}
+
+	app.Server = &http.Server{
 		Addr:              cfg.HTTP.Addr,
-		Handler:           httpapi.NewRouter(handler),
+		Handler:           router,
 		ReadTimeout:       cfg.HTTP.ReadTimeout,
 		ReadHeaderTimeout: cfg.HTTP.ReadHeaderTimeout,
 		WriteTimeout:      cfg.HTTP.WriteTimeout,
 		IdleTimeout:       cfg.HTTP.IdleTimeout,
 	}
 
-	return &Container{
-		Server: server,
-		Logger: logger,
-		pool:   pool,
-	}, nil
+	return app, nil
 }
 
-func (c *Container) Close() {
-	c.pool.Close()
+func (c *Container) Close(ctx context.Context) error {
+	// Финальный сбор gauge обращается к PostgreSQL
+	err := c.shutdownTelemetry(ctx)
+
+	if c.tripMetrics != nil {
+		err = errors.Join(err, c.tripMetrics.Close())
+	}
+
+	if c.pool != nil {
+		c.pool.Close()
+	}
+
+	return err
 }

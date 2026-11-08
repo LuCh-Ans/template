@@ -1,8 +1,11 @@
 package create_test
 
 import (
+	"bytes"
 	"context"
+	"encoding/json"
 	"errors"
+	"log/slog"
 	"reflect"
 	"testing"
 	"time"
@@ -31,6 +34,7 @@ func TestCreateTrip(t *testing.T) {
 		insertErr  error
 		historyErr error
 		txErr      error
+		commitErr  error
 		wantErr    error
 	}{
 		{name: "success"},
@@ -38,13 +42,17 @@ func TestCreateTrip(t *testing.T) {
 		{name: "insert failure", insertErr: failure, wantErr: failure},
 		{name: "history failure", historyErr: failure, wantErr: failure},
 		{name: "transaction failure", txErr: failure, wantErr: failure},
+		{name: "commit failure", commitErr: failure, wantErr: failure},
 	}
 	for _, tt := range tests {
 		t.Run(tt.name, func(t *testing.T) {
+			var logs bytes.Buffer
 			ctrl := gomock.NewController(t)
+			metrics := NewMocktripMetrics(ctrl)
 			repo := NewMocktripRepository(ctrl)
 			tx := NewMocktxManager(ctrl)
 			ctx := t.Context()
+			committed := false
 			txCtx := context.WithValue(ctx, transactionContextKey{}, "transaction")
 			input := validInput()
 			now := time.Date(2026, 11, 6, 12, 0, 0, 987654321, time.FixedZone("local", 3*3600))
@@ -53,7 +61,14 @@ func TestCreateTrip(t *testing.T) {
 				tx.EXPECT().Do(ctx, gomock.Any()).Return(tt.txErr)
 			} else {
 				tx.EXPECT().Do(ctx, gomock.Any()).DoAndReturn(func(_ context.Context, fn func(context.Context) error) error {
-					return fn(txCtx)
+					if err := fn(txCtx); err != nil {
+						return err
+					}
+					if logs.Len() != 0 {
+						t.Fatal("success logged before transaction committed")
+					}
+					committed = tt.commitErr == nil
+					return tt.commitErr
 				})
 				insert := repo.EXPECT().Create(txCtx, gomock.Any()).DoAndReturn(func(_ context.Context, trip domain.Trip) error {
 					saved = trip
@@ -77,7 +92,27 @@ func TestCreateTrip(t *testing.T) {
 						}).After(insert)
 				}
 			}
-			got, created, err := create.New(tx, repo, time.Hour, func() time.Time { return now }).CreateTrip(ctx, input)
+			if tt.wantErr == nil {
+				metrics.EXPECT().TripCreated(ctx).Do(func(context.Context) {
+					if !committed {
+						t.Fatal("metric recorded before commit")
+					}
+				})
+			}
+			got, created, err := create.New(slog.New(slog.NewJSONHandler(&logs, nil)), metrics, tx, repo, time.Hour, func() time.Time { return now }).CreateTrip(ctx, input)
+			if tt.wantErr != nil {
+				if logs.Len() != 0 {
+					t.Fatalf("success event logged on failure: %s", logs.String())
+				}
+			} else {
+				var record map[string]any
+				if err := json.Unmarshal(logs.Bytes(), &record); err != nil {
+					t.Fatal(err)
+				}
+				if record["msg"] != "trip created" || record["trip_id"] != got.ID.String() {
+					t.Fatalf("unexpected event: %s", logs.String())
+				}
+			}
 			if !errors.Is(err, tt.wantErr) {
 				t.Fatalf("error = %v, want %v", err, tt.wantErr)
 			}
@@ -95,12 +130,14 @@ func TestCreateTrip(t *testing.T) {
 }
 
 func TestCreateTripValidationBeforeTransaction(t *testing.T) {
+	var logs bytes.Buffer
 	ctrl := gomock.NewController(t)
+	metrics := NewMocktripMetrics(ctrl)
 	repo := NewMocktripRepository(ctrl)
 	tx := NewMocktxManager(ctrl)
 	input := validInput()
 	input.Price = -1
-	got, created, err := create.New(tx, repo, time.Hour, time.Now).CreateTrip(t.Context(), input)
+	got, created, err := create.New(slog.New(slog.NewJSONHandler(&logs, nil)), metrics, tx, repo, time.Hour, time.Now).CreateTrip(t.Context(), input)
 	var validationErr *domain.ValidationError
 	if !errors.As(err, &validationErr) || validationErr.Field != "price" {
 		t.Fatalf("error = %v, want price validation error", err)
@@ -129,7 +166,9 @@ func TestCreateTripIdempotencyReplay(t *testing.T) {
 	}
 	for _, tt := range tests {
 		t.Run(tt.name, func(t *testing.T) {
+			var logs bytes.Buffer
 			ctrl := gomock.NewController(t)
+			metrics := NewMocktripMetrics(ctrl)
 			repo := NewMocktripRepository(ctrl)
 			tx := NewMocktxManager(ctrl)
 			ctx := t.Context()
@@ -163,13 +202,16 @@ func TestCreateTripIdempotencyReplay(t *testing.T) {
 					repo.EXPECT().GetByID(txCtx, existing.ID).Return(existing, tt.tripErr).After(read)
 				}
 			}
-			got, created, err := create.New(tx, repo, time.Hour, time.Now).CreateTrip(ctx, input)
+			got, created, err := create.New(slog.New(slog.NewJSONHandler(&logs, nil)), metrics, tx, repo, time.Hour, time.Now).CreateTrip(ctx, input)
 			if !errors.Is(err, tt.wantErr) {
 				t.Fatalf("error = %v, want %v", err, tt.wantErr)
 			}
 			want := existing
 			if tt.wantErr != nil {
 				want = domain.Trip{}
+			}
+			if logs.Len() != 0 {
+				t.Fatalf("replay logged creation: %s", logs.String())
 			}
 			if created || !reflect.DeepEqual(got, want) {
 				t.Fatalf("result = %#v, created=%v, want %#v and false", got, created, want)
@@ -179,7 +221,9 @@ func TestCreateTripIdempotencyReplay(t *testing.T) {
 }
 
 func TestCreateTripClaimsKeyBeforeInsert(t *testing.T) {
+	var logs bytes.Buffer
 	ctrl := gomock.NewController(t)
+	metrics := NewMocktripMetrics(ctrl)
 	repo := NewMocktripRepository(ctrl)
 	tx := NewMocktxManager(ctrl)
 	ctx := t.Context()
@@ -211,7 +255,8 @@ func TestCreateTripClaimsKeyBeforeInsert(t *testing.T) {
 			}
 			return nil
 		}).After(insert)
-	got, created, err := create.New(tx, repo, time.Hour, time.Now).CreateTrip(ctx, input)
+	metrics.EXPECT().TripCreated(ctx)
+	got, created, err := create.New(slog.New(slog.NewJSONHandler(&logs, nil)), metrics, tx, repo, time.Hour, time.Now).CreateTrip(ctx, input)
 	if err != nil || !created || !reflect.DeepEqual(got, saved) {
 		t.Fatalf("create = %#v, %v, %v; want %#v, true, nil", got, created, err, saved)
 	}
@@ -219,7 +264,9 @@ func TestCreateTripClaimsKeyBeforeInsert(t *testing.T) {
 
 func idempotencyHash(t *testing.T, input create.CreateTripInput) string {
 	t.Helper()
+	var logs bytes.Buffer
 	ctrl := gomock.NewController(t)
+	metrics := NewMocktripMetrics(ctrl)
 	repo := NewMocktripRepository(ctrl)
 	tx := NewMocktxManager(ctrl)
 	ctx := t.Context()
@@ -239,7 +286,7 @@ func idempotencyHash(t *testing.T, input create.CreateTripInput) string {
 		return hash, existing.ID, nil
 	})
 	repo.EXPECT().GetByID(ctx, existing.ID).Return(existing, nil)
-	got, created, err := create.New(tx, repo, time.Hour, time.Now).CreateTrip(ctx, input)
+	got, created, err := create.New(slog.New(slog.NewJSONHandler(&logs, nil)), metrics, tx, repo, time.Hour, time.Now).CreateTrip(ctx, input)
 	if err != nil || created || got.ID != existing.ID || len(hash) != 64 {
 		t.Fatalf("replay = %#v, %v, %v, hash=%q", got, created, err, hash)
 	}

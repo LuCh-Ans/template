@@ -19,11 +19,11 @@ func New(logger *slog.Logger) *Writer {
 }
 
 // Успешный json ответ
-func (h *Writer) JSON(w http.ResponseWriter, status int, body any) {
+func (h *Writer) JSON(w http.ResponseWriter, r *http.Request, status int, body any) {
 	w.Header().Set("Content-Type", "application/json")
 	w.WriteHeader(status)
 	if err := json.NewEncoder(w).Encode(body); err != nil {
-		h.logger.Error("write json response", "error", err)
+		h.logger.ErrorContext(r.Context(), "write json response", "error", err)
 	}
 }
 

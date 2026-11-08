@@ -52,11 +52,11 @@ func (h *Handler) Handle(w http.ResponseWriter, r *http.Request, params api.Crea
 
 	// Повтор с тем же Idempotency-Key: та же поездка, но 200, а не 201
 	if !created {
-		h.responses.JSON(w, http.StatusOK, convert.ToAPI(t))
+		h.responses.JSON(w, r, http.StatusOK, convert.ToAPI(t))
 		return
 	}
 	w.Header().Set("Location", "/api/v1/trips/"+t.ID.String())
-	h.responses.JSON(w, http.StatusCreated, convert.ToAPI(t))
+	h.responses.JSON(w, r, http.StatusCreated, convert.ToAPI(t))
 }
 
 // Чтение и проверка тела

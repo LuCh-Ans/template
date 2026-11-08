@@ -12,16 +12,17 @@ import (
 
 	"github.com/LuCh-Ans/template/internal/config"
 	"github.com/LuCh-Ans/template/internal/container"
+	"github.com/LuCh-Ans/template/internal/infra/telemetry"
 )
 
 func main() {
 	if err := run(); err != nil {
-		slog.Error("service stopped with error", "error", err)
+		telemetry.NewLogger(os.Stdout, slog.LevelInfo, "trip-service").Error("service stopped with error", "error", err)
 		os.Exit(1)
 	}
 }
 
-func run() error {
+func run() (runErr error) {
 	// Загрузка конфигурации, читаем переменные окружения
 	cfg, err := config.Load()
 	if err != nil {
@@ -38,10 +39,25 @@ func run() error {
 	if err != nil {
 		return err
 	}
-	defer app.Close()
 
 	logger := app.Logger
 	srv := app.Server
+
+	defer func() {
+		shutdownCtx, cancel := context.WithTimeout(context.Background(), cfg.ShutdownTimeout)
+		defer cancel()
+		if err := srv.Shutdown(shutdownCtx); err != nil {
+			logger.Error("graceful shutdown failed, forcing close", "error", err)
+			runErr = errors.Join(runErr, fmt.Errorf("shutdown HTTP server: %w", err))
+			if closeErr := srv.Close(); closeErr != nil {
+				runErr = errors.Join(runErr, fmt.Errorf("close HTTP server: %w", closeErr))
+			}
+		}
+		if err := app.Close(shutdownCtx); err != nil {
+			runErr = errors.Join(runErr, fmt.Errorf("shutdown infrastructure: %w", err))
+		}
+		logger.Info("service stopped")
+	}()
 
 	// Запуск сервера
 	serverErr := make(chan error, 1)
@@ -56,19 +72,8 @@ func run() error {
 	select {
 	case <-ctx.Done():
 		logger.Info("shutdown signal received")
+		return nil
 	case err := <-serverErr:
 		return fmt.Errorf("http server: %w", err)
 	}
-
-	// Graceful shutdown
-	shutdownCtx, cancel := context.WithTimeout(context.Background(), cfg.ShutdownTimeout)
-	defer cancel()
-
-	if err := srv.Shutdown(shutdownCtx); err != nil {
-		logger.Error("graceful shutdown timed out, forcing close", "error", err)
-		_ = srv.Close()
-	}
-
-	logger.Info("service stopped")
-	return nil
 }

@@ -26,5 +26,5 @@ func (h *Handler) Handle(w http.ResponseWriter, r *http.Request, id api.TripId) 
 		h.responses.Error(w, r, err)
 		return
 	}
-	h.responses.JSON(w, http.StatusOK, convert.ToAPI(trip))
+	h.responses.JSON(w, r, http.StatusOK, convert.ToAPI(trip))
 }

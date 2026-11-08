@@ -5,6 +5,7 @@ import (
 	"crypto/sha256" // хэш для идемпотентности
 	"encoding/hex"  // хэш - строка из 64 символов
 	"fmt"
+	"log/slog"
 	"time"
 
 	"github.com/google/uuid"
@@ -13,6 +14,8 @@ import (
 )
 
 type UseCase struct {
+	logger         *slog.Logger
+	metrics        tripMetrics
 	tx             txManager
 	repo           tripRepository
 	now            func() time.Time
@@ -20,12 +23,16 @@ type UseCase struct {
 }
 
 func New(
+	logger *slog.Logger,
+	metrics tripMetrics,
 	tx txManager,
 	repo tripRepository,
 	idempotencyTTL time.Duration,
 	now func() time.Time,
 ) *UseCase {
 	return &UseCase{
+		logger:         logger,
+		metrics:        metrics,
 		tx:             tx,
 		repo:           repo,
 		now:            now,
@@ -94,6 +101,10 @@ func (s *UseCase) CreateTrip(ctx context.Context, in CreateTripInput) (domain.Tr
 	})
 	if err != nil {
 		return domain.Trip{}, false, fmt.Errorf("create trip: %w", err)
+	}
+	if created {
+		s.metrics.TripCreated(ctx)
+		s.logger.InfoContext(ctx, "trip created", "trip_id", result.ID.String())
 	}
 	return result, created, nil
 }

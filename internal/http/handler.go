@@ -6,12 +6,12 @@ import (
 	"fmt"
 	"log/slog"
 	"net/http"
-	"runtime/debug"
 	"time"
 
 	"github.com/go-chi/chi/v5"
 
 	api "github.com/LuCh-Ans/template/internal/generated"
+	"github.com/LuCh-Ans/template/internal/http/middleware"
 	"github.com/LuCh-Ans/template/internal/http/response"
 	createhttp "github.com/LuCh-Ans/template/internal/http/trip/create"
 	finishhttp "github.com/LuCh-Ans/template/internal/http/trip/finish"
@@ -48,11 +48,10 @@ func NewHandler(readiness readinessChecker, createHandler *createhttp.Handler, g
 }
 
 // NewRouter собирает chi-роутер = middleware + сгенерированные маршруты
-func NewRouter(h *Handler) http.Handler {
+func NewRouter(h *Handler) (http.Handler, error) {
 	r := chi.NewRouter()
-	r.Use(h.recoverer) // middleware на все маршруты
 
-	return api.HandlerWithOptions(h, api.ChiServerOptions{
+	api.HandlerWithOptions(h, api.ChiServerOptions{
 		BaseRouter: r, // регистрация маршрутов в роутере r
 		ErrorHandlerFunc: func(w http.ResponseWriter, r *http.Request, err error) { // ошибки problem+json
 			detail := "Request parameters are invalid"
@@ -63,36 +62,12 @@ func NewRouter(h *Handler) http.Handler {
 			h.responses.Problem(w, r, http.StatusBadRequest, "invalid_request", "Invalid request", detail)
 		},
 	})
-}
-
-// Ловит панику в хендлере, пишет её со стеком в лог и отвечает 500 в problem+json, как требует контракт, процесс продолжает работать
-func (h *Handler) recoverer(next http.Handler) http.Handler {
-	return http.HandlerFunc(func(w http.ResponseWriter, r *http.Request) {
-		defer func() {
-			rec := recover()
-			if rec == nil {
-				return
-			}
-			// Специальная паника net/http оборвать соединение, отдаём серверу как есть
-			if rec == http.ErrAbortHandler {
-				panic(rec)
-			}
-			h.logger.Error("panic in handler",
-				"panic", rec,
-				"method", r.Method,
-				"path", r.URL.Path,
-				"stack", string(debug.Stack()),
-			)
-			h.responses.Problem(w, r, http.StatusInternalServerError, "internal_error", "Internal Server Error", "Internal server error")
-		}()
-
-		next.ServeHTTP(w, r)
-	})
+	return middleware.Wrap(r, h.logger, h.responses)
 }
 
 // Жив ли процесс
 func (h *Handler) Health(w http.ResponseWriter, r *http.Request) {
-	h.responses.JSON(w, http.StatusOK, api.HealthResponse{Status: api.Ok})
+	h.responses.JSON(w, r, http.StatusOK, api.HealthResponse{Status: api.Ok})
 }
 
 // Готов ли сервис обслуживать запросы, то есть доступна ли база
@@ -101,9 +76,9 @@ func (h *Handler) Ready(w http.ResponseWriter, r *http.Request) {
 	defer cancel()
 
 	if err := h.readiness.Ping(ctx); err != nil {
-		h.logger.Warn("readiness check failed", "error", err)
-		h.responses.JSON(w, http.StatusServiceUnavailable, api.HealthResponse{Status: api.Unavailable})
+		h.logger.WarnContext(r.Context(), "readiness check failed", "error", err)
+		h.responses.JSON(w, r, http.StatusServiceUnavailable, api.HealthResponse{Status: api.Unavailable})
 		return
 	}
-	h.responses.JSON(w, http.StatusOK, api.HealthResponse{Status: api.Ok})
+	h.responses.JSON(w, r, http.StatusOK, api.HealthResponse{Status: api.Ok})
 }

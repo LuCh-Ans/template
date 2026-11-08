@@ -21,6 +21,12 @@ func NewPool(ctx context.Context, cfg config.DBConfig) (*pgxpool.Pool, error) {
 	poolCfg.MaxConnLifetime = cfg.MaxConnLifetime
 	poolCfg.ConnConfig.ConnectTimeout = cfg.ConnectTimeout
 
+	tracer, err := newQueryTracer()
+	if err != nil {
+		return nil, err
+	}
+	poolCfg.ConnConfig.Tracer = tracer
+
 	// Создание пула (лениво)
 	pool, err := pgxpool.NewWithConfig(ctx, poolCfg)
 	if err != nil {

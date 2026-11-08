@@ -40,9 +40,10 @@ docker-build:
 	docker build -f deploy/Dockerfile -t $(IMAGE) .
 
 docker-run:
-	docker run --rm -p 8080:8080 \
+	docker run --rm --env-file .env -p 8080:8080 \
 		-e HTTP_ADDR=:8080 \
 		-e DATABASE_URL="$(subst localhost,host.docker.internal,$(DATABASE_URL))" \
+		-e OTEL_EXPORTER_OTLP_ENDPOINT="$(subst localhost,host.docker.internal,$(OTEL_EXPORTER_OTLP_ENDPOINT))" \
 		$(IMAGE)
 
 lint:

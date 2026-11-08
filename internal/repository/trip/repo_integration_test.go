@@ -6,7 +6,9 @@ import (
 	"context"
 	"errors"
 	"fmt"
+	"io"
 	"io/fs"
+	"log/slog"
 	"os"
 	"strings"
 	"sync"
@@ -23,6 +25,12 @@ import (
 	"github.com/LuCh-Ans/template/internal/usecase/trip/create"
 	"github.com/LuCh-Ans/template/internal/usecase/trip/finish"
 )
+
+type noopTripMetrics struct{}
+
+func (noopTripMetrics) TripCreated(context.Context) {}
+
+func (noopTripMetrics) TripCompleted(context.Context) {}
 
 type integrationStore struct {
 	repo *triprepo.TripRepository
@@ -141,13 +149,24 @@ func TestRepositoryLifecycle(t *testing.T) {
 	if _, err := store.repo.GetByID(ctx, uuid.New()); !errors.Is(err, domain.ErrTripNotFound) {
 		t.Fatalf("missing error = %v", err)
 	}
+	if count, err := store.repo.CountActive(ctx); err != nil || count != 1 {
+		t.Fatalf("active before finish = %d, %v", count, err)
+	}
 	at := trip.StartedAt.Add(time.Minute)
-	completed, err := finish.New(store.tx, store.repo, func() time.Time { return at }).FinishTrip(ctx, trip.ID)
+	completed, err := finish.New(slog.New(slog.NewJSONHandler(io.Discard, nil)), noopTripMetrics{}, store.tx, store.repo, func() time.Time { return at }).FinishTrip(ctx, trip.ID)
 	if err != nil || completed.Status != domain.StatusCompleted || completed.FinishedAt == nil || !completed.FinishedAt.Equal(at) {
 		t.Fatalf("finish = %#v, %v", completed, err)
 	}
-	if _, err := finish.New(store.tx, store.repo, func() time.Time { return at.Add(time.Hour) }).FinishTrip(ctx, trip.ID); !errors.Is(err, domain.ErrTripCompleted) {
+	if _, err := finish.New(slog.New(slog.NewJSONHandler(io.Discard, nil)), noopTripMetrics{}, store.tx, store.repo, func() time.Time { return at.Add(time.Hour) }).FinishTrip(ctx, trip.ID); !errors.Is(err, domain.ErrTripCompleted) {
 		t.Fatalf("second finish error = %v", err)
+	}
+	if count, err := store.repo.CountActive(ctx); err != nil || count != 0 {
+		t.Fatalf("active after finish = %d, %v", count, err)
+	}
+	canceled, cancel := context.WithCancel(ctx)
+	cancel()
+	if _, err := store.repo.CountActive(canceled); !errors.Is(err, context.Canceled) {
+		t.Fatalf("count did not honor cancellation: %v", err)
 	}
 	got, err = store.repo.GetByID(ctx, trip.ID)
 	if err != nil || got.FinishedAt == nil || !got.FinishedAt.Equal(at) {
@@ -164,7 +183,7 @@ func TestRepositoryRollbackBothTables(t *testing.T) {
 		if err := store.repo.Create(ctx, trip); err != nil {
 			return err
 		}
-		// The second INSERT violates the real history table's status constraint.
+		// The second INSERT violates the real history table's status constraint
 		return store.repo.AddStatusChange(ctx, trip.ID, nil, domain.TripStatus("invalid"), "forced failure")
 	})
 	if err == nil {
@@ -185,7 +204,7 @@ func TestRepositoryIdempotency(t *testing.T) {
 		UserID: trip.UserID, DriverID: trip.DriverID, Start: trip.Start, End: trip.End,
 		Price: trip.Price, IdempotencyKey: &key,
 	}
-	usecase := create.New(store.tx, store.repo, time.Hour, func() time.Time { return trip.StartedAt })
+	usecase := create.New(slog.New(slog.NewJSONHandler(io.Discard, nil)), noopTripMetrics{}, store.tx, store.repo, time.Hour, func() time.Time { return trip.StartedAt })
 	first, created, err := usecase.CreateTrip(ctx, input)
 	if err != nil || !created {
 		t.Fatalf("first create: created=%v, error=%v", created, err)
@@ -207,7 +226,7 @@ func TestRepositoryIdempotency(t *testing.T) {
 	assertRowCounts(t, store.pool, 1, 1, 1)
 
 	at := trip.StartedAt.Add(time.Minute)
-	if _, err := finish.New(store.tx, store.repo, func() time.Time { return at }).FinishTrip(ctx, first.ID); err != nil {
+	if _, err := finish.New(slog.New(slog.NewJSONHandler(io.Discard, nil)), noopTripMetrics{}, store.tx, store.repo, func() time.Time { return at }).FinishTrip(ctx, first.ID); err != nil {
 		t.Fatal(err)
 	}
 	if _, err := store.pool.Exec(ctx, "UPDATE idempotency_keys SET created_at = now() - interval '2 hours' WHERE key = $1", key); err != nil {
@@ -228,7 +247,7 @@ func TestRepositoryConcurrentFinish(t *testing.T) {
 		t.Fatal(err)
 	}
 	at := trip.StartedAt.Add(time.Minute)
-	usecase := finish.New(store.tx, store.repo, func() time.Time { return at })
+	usecase := finish.New(slog.New(slog.NewJSONHandler(io.Discard, nil)), noopTripMetrics{}, store.tx, store.repo, func() time.Time { return at })
 	const workers = 8
 	start := make(chan struct{})
 	results := make(chan error, workers)

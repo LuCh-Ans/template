@@ -3,6 +3,7 @@ package finish
 import (
 	"context"
 	"fmt"
+	"log/slog"
 	"time"
 
 	"github.com/google/uuid"
@@ -11,16 +12,26 @@ import (
 )
 
 type UseCase struct {
-	tx   txManager
-	repo tripRepository
-	now  func() time.Time
+	logger  *slog.Logger
+	metrics tripMetrics
+	tx      txManager
+	repo    tripRepository
+	now     func() time.Time
 }
 
-func New(tx txManager, repo tripRepository, now func() time.Time) *UseCase {
+func New(
+	logger *slog.Logger,
+	metrics tripMetrics,
+	tx txManager,
+	repo tripRepository,
+	now func() time.Time,
+) *UseCase {
 	return &UseCase{
-		tx:   tx,
-		repo: repo,
-		now:  now,
+		logger:  logger,
+		metrics: metrics,
+		tx:      tx,
+		repo:    repo,
+		now:     now,
 	}
 }
 
@@ -59,5 +70,7 @@ func (u *UseCase) FinishTrip(ctx context.Context, id uuid.UUID) (domain.Trip, er
 	if err != nil {
 		return domain.Trip{}, fmt.Errorf("finish trip: %w", err)
 	}
+	u.metrics.TripCompleted(ctx)
+	u.logger.InfoContext(ctx, "trip completed", "trip_id", finished.ID.String())
 	return finished, nil
 }
