@@ -1,0 +1,419 @@
+{
+  "data": [
+    {
+      "traceID": "98c3f0cc5f381af5a6a6a9f314df2771",
+      "spans": [
+        {
+          "traceID": "98c3f0cc5f381af5a6a6a9f314df2771",
+          "spanID": "f0eec99d40c71d48",
+          "operationName": "BEGIN",
+          "references": [
+            {
+              "refType": "CHILD_OF",
+              "traceID": "98c3f0cc5f381af5a6a6a9f314df2771",
+              "spanID": "c2481b6eba7ef11f"
+            }
+          ],
+          "startTime": 1794130312937847,
+          "duration": 1159,
+          "tags": [
+            {
+              "key": "otel.scope.name",
+              "type": "string",
+              "value": "github.com/exaring/otelpgx"
+            },
+            {
+              "key": "otel.scope.version",
+              "type": "string",
+              "value": "v0.9.4"
+            },
+            {
+              "key": "db.collection.name",
+              "type": "string",
+              "value": ""
+            },
+            {
+              "key": "db.operation.name",
+              "type": "string",
+              "value": "BEGIN"
+            },
+            {
+              "key": "db.system",
+              "type": "string",
+              "value": "postgresql"
+            },
+            {
+              "key": "pgx.rows_affected",
+              "type": "int64",
+              "value": 0
+            },
+            {
+              "key": "span.kind",
+              "type": "string",
+              "value": "client"
+            }
+          ],
+          "logs": [],
+          "processID": "p1",
+          "warnings": null
+        },
+        {
+          "traceID": "98c3f0cc5f381af5a6a6a9f314df2771",
+          "spanID": "3c47724903cdca0f",
+          "operationName": "INSERT",
+          "references": [
+            {
+              "refType": "CHILD_OF",
+              "traceID": "98c3f0cc5f381af5a6a6a9f314df2771",
+              "spanID": "c2481b6eba7ef11f"
+            }
+          ],
+          "startTime": 1794130312939048,
+          "duration": 1226,
+          "tags": [
+            {
+              "key": "otel.scope.name",
+              "type": "string",
+              "value": "github.com/exaring/otelpgx"
+            },
+            {
+              "key": "otel.scope.version",
+              "type": "string",
+              "value": "v0.9.4"
+            },
+            {
+              "key": "db.collection.name",
+              "type": "string",
+              "value": "idempotency_keys"
+            },
+            {
+              "key": "db.operation.name",
+              "type": "string",
+              "value": "INSERT"
+            },
+            {
+              "key": "db.system",
+              "type": "string",
+              "value": "postgresql"
+            },
+            {
+              "key": "pgx.rows_affected",
+              "type": "int64",
+              "value": 1
+            },
+            {
+              "key": "span.kind",
+              "type": "string",
+              "value": "client"
+            }
+          ],
+          "logs": [],
+          "processID": "p1",
+          "warnings": null
+        },
+        {
+          "traceID": "98c3f0cc5f381af5a6a6a9f314df2771",
+          "spanID": "c0064208d53cac2b",
+          "operationName": "INSERT",
+          "references": [
+            {
+              "refType": "CHILD_OF",
+              "traceID": "98c3f0cc5f381af5a6a6a9f314df2771",
+              "spanID": "c2481b6eba7ef11f"
+            }
+          ],
+          "startTime": 1794130312940300,
+          "duration": 846,
+          "tags": [
+            {
+              "key": "otel.scope.name",
+              "type": "string",
+              "value": "github.com/exaring/otelpgx"
+            },
+            {
+              "key": "otel.scope.version",
+              "type": "string",
+              "value": "v0.9.4"
+            },
+            {
+              "key": "db.collection.name",
+              "type": "string",
+              "value": "trips"
+            },
+            {
+              "key": "db.operation.name",
+              "type": "string",
+              "value": "INSERT"
+            },
+            {
+              "key": "db.system",
+              "type": "string",
+              "value": "postgresql"
+            },
+            {
+              "key": "pgx.rows_affected",
+              "type": "int64",
+              "value": 1
+            },
+            {
+              "key": "span.kind",
+              "type": "string",
+              "value": "client"
+            }
+          ],
+          "logs": [],
+          "processID": "p1",
+          "warnings": null
+        },
+        {
+          "traceID": "98c3f0cc5f381af5a6a6a9f314df2771",
+          "spanID": "f8f1e9ec9f32d1b2",
+          "operationName": "INSERT",
+          "references": [
+            {
+              "refType": "CHILD_OF",
+              "traceID": "98c3f0cc5f381af5a6a6a9f314df2771",
+              "spanID": "c2481b6eba7ef11f"
+            }
+          ],
+          "startTime": 1794130312941163,
+          "duration": 546,
+          "tags": [
+            {
+              "key": "otel.scope.name",
+              "type": "string",
+              "value": "github.com/exaring/otelpgx"
+            },
+            {
+              "key": "otel.scope.version",
+              "type": "string",
+              "value": "v0.9.4"
+            },
+            {
+              "key": "db.collection.name",
+              "type": "string",
+              "value": "trip_status_history"
+            },
+            {
+              "key": "db.operation.name",
+              "type": "string",
+              "value": "INSERT"
+            },
+            {
+              "key": "db.system",
+              "type": "string",
+              "value": "postgresql"
+            },
+            {
+              "key": "pgx.rows_affected",
+              "type": "int64",
+              "value": 1
+            },
+            {
+              "key": "span.kind",
+              "type": "string",
+              "value": "client"
+            }
+          ],
+          "logs": [],
+          "processID": "p1",
+          "warnings": null
+        },
+        {
+          "traceID": "98c3f0cc5f381af5a6a6a9f314df2771",
+          "spanID": "5062535ac50bad9c",
+          "operationName": "COMMIT",
+          "references": [
+            {
+              "refType": "CHILD_OF",
+              "traceID": "98c3f0cc5f381af5a6a6a9f314df2771",
+              "spanID": "c2481b6eba7ef11f"
+            }
+          ],
+          "startTime": 1794130312941715,
+          "duration": 925,
+          "tags": [
+            {
+              "key": "otel.scope.name",
+              "type": "string",
+              "value": "github.com/exaring/otelpgx"
+            },
+            {
+              "key": "otel.scope.version",
+              "type": "string",
+              "value": "v0.9.4"
+            },
+            {
+              "key": "db.collection.name",
+              "type": "string",
+              "value": ""
+            },
+            {
+              "key": "db.operation.name",
+              "type": "string",
+              "value": "COMMIT"
+            },
+            {
+              "key": "db.system",
+              "type": "string",
+              "value": "postgresql"
+            },
+            {
+              "key": "pgx.rows_affected",
+              "type": "int64",
+              "value": 0
+            },
+            {
+              "key": "span.kind",
+              "type": "string",
+              "value": "client"
+            }
+          ],
+          "logs": [],
+          "processID": "p1",
+          "warnings": null
+        },
+        {
+          "traceID": "98c3f0cc5f381af5a6a6a9f314df2771",
+          "spanID": "c2481b6eba7ef11f",
+          "operationName": "POST /api/v1/trips",
+          "references": [],
+          "startTime": 1794130312936780,
+          "duration": 6073,
+          "tags": [
+            {
+              "key": "otel.scope.name",
+              "type": "string",
+              "value": "go.opentelemetry.io/contrib/instrumentation/net/http/otelhttp"
+            },
+            {
+              "key": "otel.scope.version",
+              "type": "string",
+              "value": "0.71.0"
+            },
+            {
+              "key": "client.address",
+              "type": "string",
+              "value": "127.0.0.1"
+            },
+            {
+              "key": "http.request.body.size",
+              "type": "int64",
+              "value": 221
+            },
+            {
+              "key": "http.request.method",
+              "type": "string",
+              "value": "POST"
+            },
+            {
+              "key": "http.response.body.size",
+              "type": "int64",
+              "value": 312
+            },
+            {
+              "key": "http.response.status_code",
+              "type": "int64",
+              "value": 201
+            },
+            {
+              "key": "http.route",
+              "type": "string",
+              "value": "/api/v1/trips"
+            },
+            {
+              "key": "network.peer.address",
+              "type": "string",
+              "value": "127.0.0.1"
+            },
+            {
+              "key": "network.peer.port",
+              "type": "int64",
+              "value": 62529
+            },
+            {
+              "key": "network.protocol.version",
+              "type": "string",
+              "value": "1.1"
+            },
+            {
+              "key": "server.address",
+              "type": "string",
+              "value": "127.0.0.1"
+            },
+            {
+              "key": "server.port",
+              "type": "int64",
+              "value": 8080
+            },
+            {
+              "key": "url.path",
+              "type": "string",
+              "value": "/api/v1/trips"
+            },
+            {
+              "key": "url.scheme",
+              "type": "string",
+              "value": "http"
+            },
+            {
+              "key": "user_agent.original",
+              "type": "string",
+              "value": "Python-urllib/3.13"
+            },
+            {
+              "key": "span.kind",
+              "type": "string",
+              "value": "server"
+            }
+          ],
+          "logs": [],
+          "processID": "p1",
+          "warnings": null
+        }
+      ],
+      "processes": {
+        "p1": {
+          "serviceName": "trip-service",
+          "tags": [
+            {
+              "key": "deployment.environment",
+              "type": "string",
+              "value": "local"
+            },
+            {
+              "key": "service.namespace",
+              "type": "string",
+              "value": "tripgo"
+            },
+            {
+              "key": "service.version",
+              "type": "string",
+              "value": "lab02-verification"
+            },
+            {
+              "key": "telemetry.sdk.language",
+              "type": "string",
+              "value": "go"
+            },
+            {
+              "key": "telemetry.sdk.name",
+              "type": "string",
+              "value": "opentelemetry"
+            },
+            {
+              "key": "telemetry.sdk.version",
+              "type": "string",
+              "value": "1.46.0"
+            }
+          ]
+        }
+      },
+      "warnings": null
+    }
+  ],
+  "total": 0,
+  "limit": 0,
+  "offset": 0,
+  "errors": null
+}

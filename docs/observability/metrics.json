@@ -1,0 +1,415 @@
+{
+  "http_server_request_duration_seconds_count": [
+    {
+      "metric": {
+        "__name__": "http_server_request_duration_seconds_count",
+        "exported_job": "tripgo/trip-service",
+        "http_request_method": "GET",
+        "http_response_status_code": "200",
+        "http_route": "/api/v1/trips/{tripId}",
+        "instance": "otel-collector-metrics:8889",
+        "job": "otel-collector",
+        "network_protocol_name": "http",
+        "network_protocol_version": "1.1",
+        "otel_scope_name": "go.opentelemetry.io/contrib/instrumentation/net/http/otelhttp",
+        "otel_scope_version": "0.71.0",
+        "server_address": "127.0.0.1",
+        "server_port": "8080",
+        "url_scheme": "http"
+      },
+      "value": [
+        1794130439.083,
+        "48"
+      ]
+    },
+    {
+      "metric": {
+        "__name__": "http_server_request_duration_seconds_count",
+        "exported_job": "tripgo/trip-service",
+        "http_request_method": "GET",
+        "http_response_status_code": "200",
+        "http_route": "/ready",
+        "instance": "otel-collector-metrics:8889",
+        "job": "otel-collector",
+        "network_protocol_name": "http",
+        "network_protocol_version": "1.1",
+        "otel_scope_name": "go.opentelemetry.io/contrib/instrumentation/net/http/otelhttp",
+        "otel_scope_version": "0.71.0",
+        "server_address": "127.0.0.1",
+        "server_port": "8080",
+        "url_scheme": "http"
+      },
+      "value": [
+        1794130439.083,
+        "1"
+      ]
+    },
+    {
+      "metric": {
+        "__name__": "http_server_request_duration_seconds_count",
+        "exported_job": "tripgo/trip-service",
+        "http_request_method": "POST",
+        "http_response_status_code": "200",
+        "http_route": "/api/v1/trips",
+        "instance": "otel-collector-metrics:8889",
+        "job": "otel-collector",
+        "network_protocol_name": "http",
+        "network_protocol_version": "1.1",
+        "otel_scope_name": "go.opentelemetry.io/contrib/instrumentation/net/http/otelhttp",
+        "otel_scope_version": "0.71.0",
+        "server_address": "127.0.0.1",
+        "server_port": "8080",
+        "url_scheme": "http"
+      },
+      "value": [
+        1794130439.083,
+        "3"
+      ]
+    },
+    {
+      "metric": {
+        "__name__": "http_server_request_duration_seconds_count",
+        "exported_job": "tripgo/trip-service",
+        "http_request_method": "POST",
+        "http_response_status_code": "200",
+        "http_route": "/api/v1/trips/{tripId}/finish",
+        "instance": "otel-collector-metrics:8889",
+        "job": "otel-collector",
+        "network_protocol_name": "http",
+        "network_protocol_version": "1.1",
+        "otel_scope_name": "go.opentelemetry.io/contrib/instrumentation/net/http/otelhttp",
+        "otel_scope_version": "0.71.0",
+        "server_address": "127.0.0.1",
+        "server_port": "8080",
+        "url_scheme": "http"
+      },
+      "value": [
+        1794130439.083,
+        "10"
+      ]
+    },
+    {
+      "metric": {
+        "__name__": "http_server_request_duration_seconds_count",
+        "exported_job": "tripgo/trip-service",
+        "http_request_method": "POST",
+        "http_response_status_code": "201",
+        "http_route": "/api/v1/trips",
+        "instance": "otel-collector-metrics:8889",
+        "job": "otel-collector",
+        "network_protocol_name": "http",
+        "network_protocol_version": "1.1",
+        "otel_scope_name": "go.opentelemetry.io/contrib/instrumentation/net/http/otelhttp",
+        "otel_scope_version": "0.71.0",
+        "server_address": "127.0.0.1",
+        "server_port": "8080",
+        "url_scheme": "http"
+      },
+      "value": [
+        1794130439.083,
+        "10"
+      ]
+    },
+    {
+      "metric": {
+        "__name__": "http_server_request_duration_seconds_count",
+        "exported_job": "tripgo/trip-service",
+        "http_request_method": "POST",
+        "http_response_status_code": "409",
+        "http_route": "/api/v1/trips",
+        "instance": "otel-collector-metrics:8889",
+        "job": "otel-collector",
+        "network_protocol_name": "http",
+        "network_protocol_version": "1.1",
+        "otel_scope_name": "go.opentelemetry.io/contrib/instrumentation/net/http/otelhttp",
+        "otel_scope_version": "0.71.0",
+        "server_address": "127.0.0.1",
+        "server_port": "8080",
+        "url_scheme": "http"
+      },
+      "value": [
+        1794130439.083,
+        "6"
+      ]
+    },
+    {
+      "metric": {
+        "__name__": "http_server_request_duration_seconds_count",
+        "exported_job": "tripgo/trip-service",
+        "http_request_method": "POST",
+        "http_response_status_code": "409",
+        "http_route": "/api/v1/trips/{tripId}/finish",
+        "instance": "otel-collector-metrics:8889",
+        "job": "otel-collector",
+        "network_protocol_name": "http",
+        "network_protocol_version": "1.1",
+        "otel_scope_name": "go.opentelemetry.io/contrib/instrumentation/net/http/otelhttp",
+        "otel_scope_version": "0.71.0",
+        "server_address": "127.0.0.1",
+        "server_port": "8080",
+        "url_scheme": "http"
+      },
+      "value": [
+        1794130439.083,
+        "3"
+      ]
+    }
+  ],
+  "http_server_active_requests": [
+    {
+      "metric": {
+        "__name__": "http_server_active_requests",
+        "exported_job": "tripgo/trip-service",
+        "http_request_method": "GET",
+        "http_route": "/api/v1/trips/{tripId}",
+        "instance": "otel-collector-metrics:8889",
+        "job": "otel-collector",
+        "otel_scope_name": "trip-service/http"
+      },
+      "value": [
+        1794130439.085,
+        "0"
+      ]
+    },
+    {
+      "metric": {
+        "__name__": "http_server_active_requests",
+        "exported_job": "tripgo/trip-service",
+        "http_request_method": "GET",
+        "http_route": "/ready",
+        "instance": "otel-collector-metrics:8889",
+        "job": "otel-collector",
+        "otel_scope_name": "trip-service/http"
+      },
+      "value": [
+        1794130439.085,
+        "0"
+      ]
+    },
+    {
+      "metric": {
+        "__name__": "http_server_active_requests",
+        "exported_job": "tripgo/trip-service",
+        "http_request_method": "POST",
+        "http_route": "/api/v1/trips",
+        "instance": "otel-collector-metrics:8889",
+        "job": "otel-collector",
+        "otel_scope_name": "trip-service/http"
+      },
+      "value": [
+        1794130439.085,
+        "0"
+      ]
+    },
+    {
+      "metric": {
+        "__name__": "http_server_active_requests",
+        "exported_job": "tripgo/trip-service",
+        "http_request_method": "POST",
+        "http_route": "/api/v1/trips/{tripId}/finish",
+        "instance": "otel-collector-metrics:8889",
+        "job": "otel-collector",
+        "otel_scope_name": "trip-service/http"
+      },
+      "value": [
+        1794130439.085,
+        "0"
+      ]
+    }
+  ],
+  "db_client_operation_duration_seconds_count": [
+    {
+      "metric": {
+        "__name__": "db_client_operation_duration_seconds_count",
+        "db_collection_name": "trips",
+        "db_operation_name": "SELECT",
+        "exported_job": "tripgo/trip-service",
+        "instance": "otel-collector-metrics:8889",
+        "job": "otel-collector",
+        "otel_scope_name": "trip-service/postgres"
+      },
+      "value": [
+        1794130439.087,
+        "95"
+      ]
+    },
+    {
+      "metric": {
+        "__name__": "db_client_operation_duration_seconds_count",
+        "db_operation_name": "BEGIN",
+        "exported_job": "tripgo/trip-service",
+        "instance": "otel-collector-metrics:8889",
+        "job": "otel-collector",
+        "otel_scope_name": "trip-service/postgres"
+      },
+      "value": [
+        1794130439.087,
+        "32"
+      ]
+    },
+    {
+      "metric": {
+        "__name__": "db_client_operation_duration_seconds_count",
+        "db_operation_name": "COMMIT",
+        "exported_job": "tripgo/trip-service",
+        "instance": "otel-collector-metrics:8889",
+        "job": "otel-collector",
+        "otel_scope_name": "trip-service/postgres"
+      },
+      "value": [
+        1794130439.087,
+        "23"
+      ]
+    },
+    {
+      "metric": {
+        "__name__": "db_client_operation_duration_seconds_count",
+        "db_operation_name": "ROLLBACK",
+        "exported_job": "tripgo/trip-service",
+        "instance": "otel-collector-metrics:8889",
+        "job": "otel-collector",
+        "otel_scope_name": "trip-service/postgres"
+      },
+      "value": [
+        1794130439.087,
+        "9"
+      ]
+    },
+    {
+      "metric": {
+        "__name__": "db_client_operation_duration_seconds_count",
+        "db_collection_name": "idempotency_keys",
+        "db_operation_name": "INSERT",
+        "exported_job": "tripgo/trip-service",
+        "instance": "otel-collector-metrics:8889",
+        "job": "otel-collector",
+        "otel_scope_name": "trip-service/postgres"
+      },
+      "value": [
+        1794130439.087,
+        "16"
+      ]
+    },
+    {
+      "metric": {
+        "__name__": "db_client_operation_duration_seconds_count",
+        "db_collection_name": "idempotency_keys",
+        "db_operation_name": "SELECT",
+        "exported_job": "tripgo/trip-service",
+        "instance": "otel-collector-metrics:8889",
+        "job": "otel-collector",
+        "otel_scope_name": "trip-service/postgres"
+      },
+      "value": [
+        1794130439.087,
+        "6"
+      ]
+    },
+    {
+      "metric": {
+        "__name__": "db_client_operation_duration_seconds_count",
+        "db_collection_name": "trip_status_history",
+        "db_operation_name": "INSERT",
+        "exported_job": "tripgo/trip-service",
+        "instance": "otel-collector-metrics:8889",
+        "job": "otel-collector",
+        "otel_scope_name": "trip-service/postgres"
+      },
+      "value": [
+        1794130439.087,
+        "20"
+      ]
+    },
+    {
+      "metric": {
+        "__name__": "db_client_operation_duration_seconds_count",
+        "db_collection_name": "trips",
+        "db_operation_name": "INSERT",
+        "exported_job": "tripgo/trip-service",
+        "instance": "otel-collector-metrics:8889",
+        "job": "otel-collector",
+        "otel_scope_name": "trip-service/postgres"
+      },
+      "value": [
+        1794130439.087,
+        "10"
+      ]
+    },
+    {
+      "metric": {
+        "__name__": "db_client_operation_duration_seconds_count",
+        "db_collection_name": "trips",
+        "db_operation_name": "UPDATE",
+        "exported_job": "tripgo/trip-service",
+        "instance": "otel-collector-metrics:8889",
+        "job": "otel-collector",
+        "otel_scope_name": "trip-service/postgres"
+      },
+      "value": [
+        1794130439.087,
+        "10"
+      ]
+    },
+    {
+      "metric": {
+        "__name__": "db_client_operation_duration_seconds_count",
+        "db_collection_name": "trips",
+        "db_operation_name": "INSERT",
+        "error_type": "23505",
+        "exported_job": "tripgo/trip-service",
+        "instance": "otel-collector-metrics:8889",
+        "job": "otel-collector",
+        "otel_scope_name": "trip-service/postgres"
+      },
+      "value": [
+        1794130439.087,
+        "3"
+      ]
+    }
+  ],
+  "tripgo_trips_created_total": [
+    {
+      "metric": {
+        "__name__": "tripgo_trips_created_total",
+        "exported_job": "tripgo/trip-service",
+        "instance": "otel-collector-metrics:8889",
+        "job": "otel-collector",
+        "otel_scope_name": "trip-service/trips"
+      },
+      "value": [
+        1794130439.088,
+        "10"
+      ]
+    }
+  ],
+  "tripgo_trips_completed_total": [
+    {
+      "metric": {
+        "__name__": "tripgo_trips_completed_total",
+        "exported_job": "tripgo/trip-service",
+        "instance": "otel-collector-metrics:8889",
+        "job": "otel-collector",
+        "otel_scope_name": "trip-service/trips"
+      },
+      "value": [
+        1794130439.089,
+        "10"
+      ]
+    }
+  ],
+  "tripgo_trips_active": [
+    {
+      "metric": {
+        "__name__": "tripgo_trips_active",
+        "exported_job": "tripgo/trip-service",
+        "instance": "otel-collector-metrics:8889",
+        "job": "otel-collector",
+        "otel_scope_name": "trip-service/trips"
+      },
+      "value": [
+        1794130439.091,
+        "0"
+      ]
+    }
+  ]
+}

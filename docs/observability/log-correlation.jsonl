@@ -1,0 +1,2 @@
+{"time": "2026-11-08T12:31:52.942651+03:00", "level": "INFO", "msg": "trip created", "service": "trip-service", "trip_id": "d6cc7903-5331-4247-ba59-b6487d3da53b", "trace_id": "98c3f0cc5f381af5a6a6a9f314df2771", "span_id": "c2481b6eba7ef11f"}
+{"time": "2026-11-08T12:31:52.942825+03:00", "level": "INFO", "msg": "request handled", "service": "trip-service", "method": "POST", "route": "/api/v1/trips", "status": 201, "duration_ms": 6.029959, "trace_id": "98c3f0cc5f381af5a6a6a9f314df2771", "span_id": "c2481b6eba7ef11f"}

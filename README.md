@@ -5,7 +5,7 @@ HTTP API по контракту `contracts/openapi/trip-service.openapi.yaml`, 
 
 **Лабораторная работа 1** — HTTP API, PostgreSQL, менеджер транзакций.
 
-**Лабораторная работа 2 в работе** — слои выделены, полный набор тестов и телеметрия ещё впереди.
+**Лабораторная работа 2** — слои, unit- и интеграционные тесты, структурные логи, HTTP/SQL-трейсы и метрики OpenTelemetry. Результаты финальной проверки и скриншоты — [docs/observability](docs/observability/verification.md).
 
 ## Требования
 
@@ -35,8 +35,9 @@ make run                       # запускает сервис на :8080
 | `make migrate` | накатить миграции |
 | `make migrate-down` | откатить последнюю миграцию |
 | `make migrate-status` | состояние миграций |
-| `make generate` | сгенерировать код из OpenAPI в `internal/generated/` |
-| `make test` | тесты с `-race` |
+| `make generate` | сгенерировать OpenAPI и моки из `contract.go` |
+| `make test` | unit-тесты с `-race` и отчётом покрытия |
+| `make test-integration` | тесты PostgreSQL с `-race`, два прогона |
 | `make lint` | проверка кода и границ слоёв через golangci-lint |
 | `make psql` | консоль базы |
 | `make docker-build` | собрать Docker-образ `trip-service:local` |
@@ -46,7 +47,7 @@ Makefile читает переменные из `.env` и экспортируе
 
 ## Переменные окружения
 
-Полный список с примерами — `.env.example`. Для ЛР1 используются:
+Полный список с примерами — `.env.example`. Основные настройки:
 
 | Переменная | Обязательная | По умолчанию | Описание |
 |---|---|---|---|
@@ -65,7 +66,7 @@ Makefile читает переменные из `.env` и экспортируе
 | `DATABASE_QUERY_TIMEOUT` | нет | `3s` | таймаут запроса, BEGIN/COMMIT/ROLLBACK и `/ready` |
 | `IDEMPOTENCY_KEY_TTL` | нет | `24h` | сколько живёт ключ `Idempotency-Key` | 
 
-Переменные `HTTP_*_TIMEOUT` и `IDEMPOTENCY_KEY_TTL` добавлены в этой работе. Если обязательная переменная не задана или значение некорректно (не парсится, таймаут ≤ 0, `MIN_CONNS > MAX_CONNS`), сервис не стартует и перечисляет все ошибки разом.
+Если обязательная переменная не задана или значение некорректно (не парсится, таймаут ≤ 0, `MIN_CONNS > MAX_CONNS`), сервис не стартует и перечисляет все ошибки разом.
 
 ## API
 
@@ -77,7 +78,11 @@ Makefile читает переменные из `.env` и экспортируе
 | GET | `/health` | 200 |
 | GET | `/ready` | 200, 503 |
 
-Ошибки — RFC 9457, `application/problem+json`, машиночитаемый код в поле `code`.
+Ошибки API возвращаются в формате RFC 9457, `application/problem+json`,
+с машиночитаемым полем `code`. Неизвестный маршрут возвращает
+`404 not_found`, неподдерживаемый метод — `405 method_not_allowed`
+с заголовком `Allow`. Ответ `/ready` при недоступности базы сохраняет
+предусмотренный контрактом формат `{"status":"unavailable"}` и статус 503.
 
 ## Как проверить
 
@@ -92,6 +97,52 @@ seq 20 | xargs -P20 -I{} curl -s -o /dev/null -w '%{http_code}\n' \
 ```
 
 Для повторного запуска гонки замените `driver_id` в `trip.json` на новый UUID.
+
+## Тесты
+
+Для unit-тестов выполните `make test`. Команда запускает тесты с детектором
+гонок, печатает покрытие по пакетам и итоговую таблицу по функциям.
+Профиль записывается в `bin/coverage.out`. Каталог `bin/` исключён из Git.
+Требование покрытия не ниже 50% относится к пакетам `internal/domain/...`
+и `internal/usecase/...`. Общий итог также учитывает инфраструктуру и
+сгенерированный OpenAPI-код.
+
+Моки репозитория, менеджера транзакций и usecase сгенерированы Uber GoMock
+v0.6.0. Версия `mockgen` закреплена в `go.mod`. Директивы `go:generate`
+находятся в `contract.go` потребителей, результаты — в соседних
+`mocks_test.go`. Для обновления OpenAPI и моков выполните `make generate`.
+Сгенерированные файлы входят в состав работы.
+
+Проверки охватывают доменные правила, все три usecase, маппинг ошибок,
+HTTP-хендлеры через `httptest` и идемпотентность. Для ответа 500 проверяется
+отсутствие внутренних подробностей в теле. Моки проверяют передачу контекста
+транзакции и порядок записи поездки и истории. Время передаётся через
+конструктор usecase.
+
+Интеграционные тесты используют PostgreSQL окружения курса.
+
+```bash
+tripgoctl environment start
+tripgoctl connect
+make test-integration
+```
+
+Makefile читает `DATABASE_URL` из `.env`. Роль базы должна иметь право
+создавать схемы. Каждый тест создаёт уникальную схему `test_trip_*`,
+применяет в ней существующие миграции и удаляет схему через `t.Cleanup`.
+Проверки работают с изолированными таблицами. Миграции для рабочей схемы
+вручную перед этим запуском применять не требуется.
+
+Файлы интеграционных тестов отделены тегом `integration`. Проверяются
+запись и чтение, конфликт занятого водителя, завершение, идемпотентность
+и истечение ключа. При ошибке второй вставки тест проверяет отсутствие
+строк в обеих таблицах. Дополнительно проверяются откат после паники
+и отмены контекста, а также конкурентное завершение поездки.
+
+Для проверки повторяемости unit-тестов выполните
+`go test -race -count=2 ./...`. Интеграционная цель уже использует
+`-count=2`. Синхронизация конкурентного теста выполнена каналом и
+`sync.WaitGroup`.
 
 ## Архитектура
 
@@ -111,8 +162,10 @@ internal/http/trip/convert/       преобразование поездки в
 internal/http/response/           запись JSON и Problem, логирование ошибок
 internal/http/domainerror/        маппинг доменной ошибки в Problem
 internal/repository/trip/         SQL-запросы и преобразование строк БД
-internal/infra/postgres/          настройка пула соединений
+internal/infra/postgres/          пул, otelpgx и метрика длительности SQL
 internal/infra/postgres/transaction/ менеджер транзакций
+internal/infra/telemetry/         OTel SDK, JSON-логгер и бизнес-метрики
+internal/http/middleware/         Recover, Tracing, Logging, Metrics
 internal/generated/              код, сгенерированный по OpenAPI
 migrations/                      миграции goose
 contracts/                       контракты курса
@@ -124,10 +177,14 @@ Usecase использует доменную модель и интерфейс
 операции, нужные конкретному потребителю. Репозиторий получает исполнителя
 SQL через свой интерфейс `executorProvider`.
 
-`container.New(ctx, cfg)` создаёт пул, менеджер транзакций, репозиторий,
-usecase, логгер, объект ответов, хендлеры и HTTP-сервер. `main` управляет
-запуском и остановкой. После остановки HTTP-сервера `Container.Close`
-закрывает пул. Для /ready HTTP получает интерфейс с методом `Ping`.
+`container.New(ctx, cfg)` создаёт логгер и OTel SDK, затем пул, менеджер
+транзакций, репозиторий, бизнес-метрики, usecase, хендлеры и HTTP-сервер.
+`main` управляет запуском и остановкой. После завершения HTTP-запросов
+`Container.Close` завершает экспорт телеметрии, отменяет callback gauge
+и закрывает пул. Пул остаётся доступен для финального измерения gauge.
+Для /ready HTTP получает интерфейс с методом `Ping`.
+Usecase получает метрики через интерфейс из своего `contract.go`;
+зависимости usecase от OTel SDK нет.
 
 Зависимости направлены к доменным правилам. Домен использует стандартную
 библиотеку и UUID. Usecase получает внешние зависимости через конструкторы.
@@ -158,7 +215,7 @@ Usecase создания вызывает `Trip.Validate` до транзакц�
 - процесс запускается от пользователя `nonroot` (uid 65532), не от root;
 - `.dockerignore` не пускает в контекст сборки `.git`, `.env`, `.tripgo`, `bin`, тесты, `*.md` и `trip.json`.
 
-**Размер итогового образа — 20.7 MB** (`docker images`, колонка `DISK USAGE`; в сжатом виде 4.6 MB, из них бинарь 10.7 MB).
+Размер образа зависит от текущей сборки; его можно посмотреть через `docker images trip-service:local`.
 
 ```bash
 tripgoctl environment start
@@ -167,7 +224,7 @@ make docker-run
 curl localhost:8080/ready     # {"status":"ok"}
 ```
 
-Внутри контейнера `localhost` — это сам контейнер, поэтому `make docker-run` подменяет хост базы из `.env` на `host.docker.internal` — адрес компьютера-хозяина в Docker Desktop.
+Внутри контейнера `localhost` — это сам контейнер, поэтому `make docker-run` передаёт настройки из `.env` и подменяет `localhost` в адресах базы и OTLP-коллектора на `host.docker.internal` — адрес компьютера-хозяина в Docker Desktop.
 
 ## Решения
 
@@ -255,3 +312,76 @@ RETURNING ...
 - `started_at` и `finished_at` выставляет сервис в UTC с точностью до микросекунд — как хранит PostgreSQL.
 - Паника в хендлере логируется со стеком и превращается в `500 internal_error` в `problem+json`.
 
+
+## Observability
+
+Настройки SDK:
+
+| Переменная | Значение по умолчанию / назначение |
+|---|---|
+| `OTEL_SERVICE_NAME` | `trip-service` |
+| `SERVICE_VERSION` | `dev`, версия сборки |
+| `OTEL_EXPORTER_OTLP_ENDPOINT` | обязательный HTTP(S) URL из сгенерированного `.env` |
+| `OTEL_EXPORTER_OTLP_PROTOCOL` | поддерживается `http/protobuf` |
+| `OTEL_RESOURCE_ATTRIBUTES` | дополнительные атрибуты ресурса; окружение курса задаёт namespace и environment |
+| `OTEL_TRACES_SAMPLER` | читает SDK; в окружении курса `parentbased_always_on` |
+| `OTEL_METRIC_EXPORT_INTERVAL` | миллисекунды; пример проекта задаёт `10000` |
+| `OTEL_EXPORTER_OTLP_TIMEOUT` | `2000`, таймаут экспорта в миллисекундах; положительное целое |
+| `OTEL_BSP_SCHEDULE_DELAY` | `1000`, интервал отправки пакетов спанов в миллисекундах; положительное целое |
+
+Адрес коллектора берётся из окружения курса: не заменяйте его портом из
+`.env.example`. Метрики и трейсы уходят по OTLP, JSON-логи пишутся в stdout.
+
+Цепочка HTTP: `Recover → Tracing → Logging → Metrics → router`.
+Внутренняя граница вызова роутера делегирует обработку паники Recover, чтобы
+ответ 500 был сформирован до завершения HTTP-спана и измерения длительности.
+Для уже отправленного ответа статус изменить нельзя.
+На запрос пишется одна запись `request handled`: method, route, status,
+duration_ms, service, trace_id и span_id. Уровень INFO для 2xx/4xx,
+ERROR для 5xx. Тела запросов и ответов не логируются.
+Для неизвестного маршрута используется метка `unmatched`.
+
+Спан HTTP называется по методу и шаблону маршрута. W3C TraceContext
+связывает входящий запрос с родительским трейсом.
+`otelpgx` создаёт SQL-спаны; обёртка пула добавляет
+`db.operation.name`, `db.collection.name` и `error.type`.
+Распознавание таблиц ограничено SQL-формами и тремя таблицами сервиса.
+Параметры и текст SQL не экспортируются. Метрика длительности БД записывается
+один раз в секундах, в том числе для запросов без записываемого спана.
+
+| OTel | Имя в Prometheus |
+|---|---|
+| `http.server.request.duration` | `http_server_request_duration_seconds_{bucket,count,sum}` |
+| `http.server.active_requests` | `http_server_active_requests` |
+| `db.client.operation.duration` | `db_client_operation_duration_seconds_{bucket,count,sum}` |
+| `tripgo.trips.created` | `tripgo_trips_created_total` |
+| `tripgo.trips.completed` | `tripgo_trips_completed_total` |
+| `tripgo.trips.active` | `tripgo_trips_active` |
+
+Created/completed увеличиваются только после успешной транзакции.
+Идемпотентный повтор, конфликт и ошибка COMMIT не увеличивают счётчики.
+Gauge измеряет количество активных поездок в БД при сборе с тайм-аутом
+DATABASE_QUERY_TIMEOUT; при ошибке не публикует ложный ноль.
+Бизнес-метрики не имеют меток с идентификаторами.
+
+Счётчики принадлежат процессу и сбрасываются при его перезапуске.
+Gauge восстанавливает значение из БД. В этом локальном окружении
+предполагается один экземпляр trip-service.
+
+При недоступности коллектора API продолжает работать. Экспорт ограничен
+тайм-аутами; после восстановления новые данные снова поступают.
+Доставка каждого сигнала во время сбоя не гарантируется.
+Ошибки фоновой работы OpenTelemetry записываются общим JSON-логгером
+на уровне WARN с полями service и error.
+Если финальный экспорт при остановке не удался, сервис фиксирует ошибку
+и завершает работу с ненулевым кодом.
+
+### Просмотр результатов
+
+Откройте адреса Jaeger, Grafana и Prometheus из `tripgoctl connect`.
+В Jaeger найдите `trip-service` или вставьте trace_id из JSON-лога.
+В Grafana импортируйте [dashboard.json](docs/observability/dashboard.json);
+он использует datasource UID `prometheus` и метку
+`exported_job="tripgo/trip-service"` из текущего коллектора курса.
+
+[Протокол проверок, скриншоты и примеры данных](docs/observability/verification.md).
