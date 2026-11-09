@@ -44,6 +44,8 @@ type TelemetryConfig struct {
 	ServiceVersion string
 	Endpoint       string
 	Protocol       string
+	ExportTimeout  time.Duration
+	BatchTimeout   time.Duration
 }
 
 // Главная точка входа, читает все переменные окружения
@@ -72,6 +74,8 @@ func Load() (Config, error) {
 			ServiceVersion: l.optional("SERVICE_VERSION", "dev"),
 			Endpoint:       l.required("OTEL_EXPORTER_OTLP_ENDPOINT"),
 			Protocol:       l.optional("OTEL_EXPORTER_OTLP_PROTOCOL", "http/protobuf"),
+			ExportTimeout:  l.milliseconds("OTEL_EXPORTER_OTLP_TIMEOUT", "2000"),
+			BatchTimeout:   l.milliseconds("OTEL_BSP_SCHEDULE_DELAY", "1000"),
 		},
 		ShutdownTimeout: l.duration("SHUTDOWN_TIMEOUT", "10s"),
 		IdempotencyTTL:  l.duration("IDEMPOTENCY_KEY_TTL", "24h"),
@@ -150,4 +154,13 @@ func (l *loader) integer(key, def string) int32 {
 		return 0
 	}
 	return int32(n)
+}
+
+// Стандартные переменные OpenTelemetry задают время в миллисекундах.
+func (l *loader) milliseconds(key, def string) time.Duration {
+	n := l.integer(key, def)
+	if n <= 0 {
+		l.fail(fmt.Errorf("%s must be positive, got %d", key, n))
+	}
+	return time.Duration(n) * time.Millisecond
 }

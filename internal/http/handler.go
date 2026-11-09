@@ -6,6 +6,7 @@ import (
 	"fmt"
 	"log/slog"
 	"net/http"
+	"strings"
 	"time"
 
 	"github.com/go-chi/chi/v5"
@@ -50,6 +51,22 @@ func NewHandler(readiness readinessChecker, createHandler *createhttp.Handler, g
 // NewRouter собирает chi-роутер = middleware + сгенерированные маршруты
 func NewRouter(h *Handler) (http.Handler, error) {
 	r := chi.NewRouter()
+	r.NotFound(func(w http.ResponseWriter, req *http.Request) {
+		h.responses.Problem(w, req, http.StatusNotFound, "not_found", "Not found", "Requested resource was not found")
+	})
+	r.MethodNotAllowed(func(w http.ResponseWriter, req *http.Request) {
+		// Собственный обработчик chi должен сам выставлять Allow.
+		var allowed []string
+		for _, method := range []string{http.MethodGet, http.MethodHead, http.MethodPost, http.MethodPut, http.MethodPatch, http.MethodDelete, http.MethodConnect, http.MethodOptions, http.MethodTrace} {
+			if r.Match(chi.NewRouteContext(), method, req.URL.Path) {
+				allowed = append(allowed, method)
+			}
+		}
+		if len(allowed) > 0 {
+			w.Header().Set("Allow", strings.Join(allowed, ", "))
+		}
+		h.responses.Problem(w, req, http.StatusMethodNotAllowed, "method_not_allowed", "Method not allowed", "Method is not supported for this resource")
+	})
 
 	api.HandlerWithOptions(h, api.ChiServerOptions{
 		BaseRouter: r, // регистрация маршрутов в роутере r

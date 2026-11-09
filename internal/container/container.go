@@ -42,7 +42,7 @@ func New(ctx context.Context, cfg config.Config) (_ *Container, err error) {
 	)
 
 	// SDK должен существовать до создания пула и инструментов.
-	shutdownTelemetry, err := telemetry.Setup(ctx, cfg.Telemetry)
+	shutdownTelemetry, err := telemetry.Setup(ctx, cfg.Telemetry, logger)
 	if err != nil {
 		return nil, fmt.Errorf("initialize telemetry: %w", err)
 	}

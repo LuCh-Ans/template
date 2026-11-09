@@ -8,10 +8,6 @@ import (
 	"go.opentelemetry.io/otel/metric"
 )
 
-type activeTripCounter interface {
-	CountActive(ctx context.Context) (int64, error)
-}
-
 type TripMetrics struct {
 	created      metric.Int64Counter
 	completed    metric.Int64Counter

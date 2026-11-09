@@ -1,27 +1,16 @@
 package telemetry_test
 
 import (
-	"context"
 	"errors"
 	"testing"
 
 	"go.opentelemetry.io/otel"
 	sdkmetric "go.opentelemetry.io/otel/sdk/metric"
 	"go.opentelemetry.io/otel/sdk/metric/metricdata"
+	"go.uber.org/mock/gomock"
 
 	"github.com/LuCh-Ans/template/internal/infra/telemetry"
 )
-
-type activeSource struct {
-	count int64
-	err   error
-	calls int
-}
-
-func (s *activeSource) CountActive(context.Context) (int64, error) {
-	s.calls++
-	return s.count, s.err
-}
 
 func TestTripMetrics(t *testing.T) {
 	reader := sdkmetric.NewManualReader()
@@ -34,7 +23,7 @@ func TestTripMetrics(t *testing.T) {
 			t.Error(err)
 		}
 	}()
-	source := &activeSource{count: 7}
+	source := NewMockactiveTripCounter(gomock.NewController(t))
 	metrics, err := telemetry.NewTripMetrics(source)
 	if err != nil {
 		t.Fatal(err)
@@ -49,7 +38,7 @@ func TestTripMetrics(t *testing.T) {
 	metrics.TripCompleted(t.Context())
 
 	for _, count := range []int64{7, 3, 0} {
-		source.count = count
+		source.EXPECT().CountActive(gomock.Any()).Return(count, nil)
 		var data metricdata.ResourceMetrics
 		if err := reader.Collect(t.Context(), &data); err != nil {
 			t.Fatal(err)
@@ -80,9 +69,10 @@ func TestTripMetrics(t *testing.T) {
 			}
 		}
 	}
-	source.err = errors.New("database unavailable")
+	sourceErr := errors.New("database unavailable")
+	source.EXPECT().CountActive(gomock.Any()).Return(int64(0), sourceErr)
 	var data metricdata.ResourceMetrics
-	if err := reader.Collect(t.Context(), &data); !errors.Is(err, source.err) {
+	if err := reader.Collect(t.Context(), &data); !errors.Is(err, sourceErr) {
 		t.Fatalf("collection error = %v", err)
 	}
 	for _, scope := range data.ScopeMetrics {
@@ -95,11 +85,7 @@ func TestTripMetrics(t *testing.T) {
 	if err := metrics.Close(); err != nil {
 		t.Fatal(err)
 	}
-	calls := source.calls
 	if err := reader.Collect(t.Context(), &data); err != nil {
 		t.Fatal(err)
-	}
-	if source.calls != calls {
-		t.Fatal("callback still runs after unregister")
 	}
 }
