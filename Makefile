@@ -4,8 +4,7 @@ export
 MIGRATIONS_DIR := migrations
 IMAGE ?= trip-service:local
 
-.PHONY: run build migrate migrate-down migrate-status psql generate test docker-build docker-run
-
+.PHONY: run build migrate migrate-down migrate-status psql generate test docker-build docker-run lint test-integration
 run:
 	go run ./cmd/trip-service
 
@@ -27,15 +26,25 @@ psql:
 generate:
 	@mkdir -p internal/generated
 	go tool oapi-codegen -config oapi-codegen.yaml contracts/openapi/trip-service.openapi.yaml
+	go generate ./internal/...
 
 test:
-	go test -race ./...
+	@mkdir -p bin
+	go test -race -coverprofile=bin/coverage.out ./...
+	go tool cover -func=bin/coverage.out
+
+test-integration:
+	go test -race -tags=integration -count=2 ./internal/repository/...
 
 docker-build:
 	docker build -f deploy/Dockerfile -t $(IMAGE) .
 
 docker-run:
-	docker run --rm -p 8080:8080 \
+	docker run --rm --env-file .env -p 8080:8080 \
 		-e HTTP_ADDR=:8080 \
 		-e DATABASE_URL="$(subst localhost,host.docker.internal,$(DATABASE_URL))" \
+		-e OTEL_EXPORTER_OTLP_ENDPOINT="$(subst localhost,host.docker.internal,$(OTEL_EXPORTER_OTLP_ENDPOINT))" \
 		$(IMAGE)
+
+lint:
+	golangci-lint run ./...
