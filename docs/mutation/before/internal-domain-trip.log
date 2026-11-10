@@ -1,0 +1,41 @@
+Starting...
+Gathering coverage... done in 89.310417ms
+      KILLED ARITHMETIC_BASE at errors.go:18:23
+      KILLED ARITHMETIC_BASE at errors.go:18:17
+      KILLED INVERT_BITWISE at trip.go:43:17
+      KILLED CONDITIONALS_NEGATION at trip.go:38:14
+      KILLED INVERT_BITWISE at validate.go:11:10
+      KILLED CONDITIONALS_NEGATION at validate.go:10:14
+      KILLED INVERT_BITWISE at validate.go:17:10
+      KILLED CONDITIONALS_NEGATION at validate.go:16:16
+      KILLED CONDITIONALS_NEGATION at validate.go:22:55
+      KILLED CONDITIONALS_NEGATION at validate.go:25:51
+      KILLED CONDITIONALS_BOUNDARY at validate.go:28:13
+      KILLED INVERT_BITWISE at validate.go:29:10
+      KILLED CONDITIONALS_NEGATION at validate.go:28:13
+      KILLED INVERT_LOGICAL at validate.go:38:56
+      KILLED INVERT_LOGICAL at validate.go:38:32
+      KILLED CONDITIONALS_BOUNDARY at validate.go:38:50
+      KILLED CONDITIONALS_NEGATION at validate.go:38:50
+      KILLED INVERT_NEGATIVES at validate.go:38:52
+      KILLED ARITHMETIC_BASE at validate.go:38:52
+      KILLED CONDITIONALS_BOUNDARY at validate.go:38:74
+      KILLED INVERT_BITWISE at validate.go:39:10
+      KILLED ARITHMETIC_BASE at validate.go:40:19
+      KILLED CONDITIONALS_NEGATION at validate.go:38:74
+      KILLED INVERT_LOGICAL at validate.go:44:59
+      KILLED INVERT_LOGICAL at validate.go:44:33
+      KILLED CONDITIONALS_BOUNDARY at validate.go:44:52
+      KILLED CONDITIONALS_NEGATION at validate.go:44:52
+      KILLED INVERT_NEGATIVES at validate.go:44:54
+      KILLED ARITHMETIC_BASE at validate.go:44:54
+      KILLED CONDITIONALS_BOUNDARY at validate.go:44:78
+      KILLED INVERT_BITWISE at validate.go:45:10
+      KILLED ARITHMETIC_BASE at validate.go:46:19
+      KILLED CONDITIONALS_NEGATION at validate.go:44:78
+
+Mutation testing completed in 9 seconds 282 milliseconds
+Killed: 33, Lived: 0, Not covered: 0
+Timed out: 0, Not viable: 0, Skipped: 0
+Test efficacy: 100.00%
+Mutator coverage: 100.00%

@@ -46,15 +46,9 @@ func run() (runErr error) {
 	defer func() {
 		shutdownCtx, cancel := context.WithTimeout(context.Background(), cfg.ShutdownTimeout)
 		defer cancel()
-		if err := srv.Shutdown(shutdownCtx); err != nil {
-			logger.Error("graceful shutdown failed, forcing close", "error", err)
-			runErr = errors.Join(runErr, fmt.Errorf("shutdown HTTP server: %w", err))
-			if closeErr := srv.Close(); closeErr != nil {
-				runErr = errors.Join(runErr, fmt.Errorf("close HTTP server: %w", closeErr))
-			}
-		}
-		if err := app.Close(shutdownCtx); err != nil {
-			runErr = errors.Join(runErr, fmt.Errorf("shutdown infrastructure: %w", err))
+		if err := shutdown(shutdownCtx, srv, app.Close); err != nil {
+			runErr = errors.Join(runErr, err)
+			return
 		}
 		logger.Info("service stopped")
 	}()
