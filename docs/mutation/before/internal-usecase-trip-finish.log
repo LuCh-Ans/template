@@ -1,0 +1,15 @@
+Starting...
+Gathering coverage... done in 88.680666ms
+      KILLED INVERT_BITWISE at usecase.go:29:9
+      KILLED CONDITIONALS_NEGATION at usecase.go:43:10
+      KILLED CONDITIONALS_NEGATION at usecase.go:48:37
+      KILLED INVERT_BITWISE at usecase.go:62:13
+      KILLED CONDITIONALS_NEGATION at usecase.go:53:10
+      KILLED CONDITIONALS_NEGATION at usecase.go:63:10
+      KILLED CONDITIONALS_NEGATION at usecase.go:70:9
+
+Mutation testing completed in 1 second 969 milliseconds
+Killed: 7, Lived: 0, Not covered: 0
+Timed out: 0, Not viable: 0, Skipped: 0
+Test efficacy: 100.00%
+Mutator coverage: 100.00%

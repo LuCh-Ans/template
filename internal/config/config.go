@@ -4,6 +4,7 @@ import (
 	"errors"
 	"fmt"
 	"log/slog"
+	"net/url"
 	"os"
 	"strconv"
 	"time"
@@ -16,6 +17,7 @@ type Config struct {
 	LogLevel        slog.Level
 	ShutdownTimeout time.Duration
 	IdempotencyTTL  time.Duration
+	Telemetry       TelemetryConfig
 }
 
 // Группирует все параметры HTTP сервера
@@ -35,6 +37,15 @@ type DBConfig struct {
 	ConnectTimeout  time.Duration
 	QueryTimeout    time.Duration
 	MaxConnLifetime time.Duration
+}
+
+type TelemetryConfig struct {
+	ServiceName    string
+	ServiceVersion string
+	Endpoint       string
+	Protocol       string
+	ExportTimeout  time.Duration
+	BatchTimeout   time.Duration
 }
 
 // Главная точка входа, читает все переменные окружения
@@ -58,6 +69,14 @@ func Load() (Config, error) {
 			QueryTimeout:    l.duration("DATABASE_QUERY_TIMEOUT", "3s"),
 			MaxConnLifetime: l.duration("DATABASE_MAX_CONN_LIFETIME", "30m"),
 		},
+		Telemetry: TelemetryConfig{
+			ServiceName:    l.optional("OTEL_SERVICE_NAME", "trip-service"),
+			ServiceVersion: l.optional("SERVICE_VERSION", "dev"),
+			Endpoint:       l.required("OTEL_EXPORTER_OTLP_ENDPOINT"),
+			Protocol:       l.optional("OTEL_EXPORTER_OTLP_PROTOCOL", "http/protobuf"),
+			ExportTimeout:  l.milliseconds("OTEL_EXPORTER_OTLP_TIMEOUT", "2000"),
+			BatchTimeout:   l.milliseconds("OTEL_BSP_SCHEDULE_DELAY", "1000"),
+		},
 		ShutdownTimeout: l.duration("SHUTDOWN_TIMEOUT", "10s"),
 		IdempotencyTTL:  l.duration("IDEMPOTENCY_KEY_TTL", "24h"),
 	}
@@ -71,6 +90,16 @@ func Load() (Config, error) {
 	}
 	if cfg.DB.MinConns < 0 || cfg.DB.MinConns > cfg.DB.MaxConns {
 		l.fail(fmt.Errorf("DATABASE_MIN_CONNS must be in [0, DATABASE_MAX_CONNS], got %d", cfg.DB.MinConns))
+	}
+
+	if cfg.Telemetry.Protocol != "http/protobuf" {
+		l.fail(fmt.Errorf("OTEL_EXPORTER_OTLP_PROTOCOL must be http/protobuf, got %q", cfg.Telemetry.Protocol))
+	}
+	endpoint, err := url.Parse(cfg.Telemetry.Endpoint)
+	if err != nil {
+		l.fail(fmt.Errorf("OTEL_EXPORTER_OTLP_ENDPOINT: %w", err))
+	} else if endpoint.Hostname() == "" || (endpoint.Scheme != "http" && endpoint.Scheme != "https") {
+		l.fail(errors.New("OTEL_EXPORTER_OTLP_ENDPOINT must be an absolute HTTP or HTTPS URL"))
 	}
 
 	if len(l.errs) > 0 {
@@ -125,4 +154,13 @@ func (l *loader) integer(key, def string) int32 {
 		return 0
 	}
 	return int32(n)
+}
+
+// Стандартные переменные OpenTelemetry задают время в миллисекундах.
+func (l *loader) milliseconds(key, def string) time.Duration {
+	n := l.integer(key, def)
+	if n <= 0 {
+		l.fail(fmt.Errorf("%s must be positive, got %d", key, n))
+	}
+	return time.Duration(n) * time.Millisecond
 }

@@ -11,56 +11,47 @@ import (
 	"syscall"
 
 	"github.com/LuCh-Ans/template/internal/config"
-	"github.com/LuCh-Ans/template/internal/httpapi"
-	"github.com/LuCh-Ans/template/internal/postgres"
-	"github.com/LuCh-Ans/template/internal/trip"
+	"github.com/LuCh-Ans/template/internal/container"
+	"github.com/LuCh-Ans/template/internal/infra/telemetry"
 )
 
 func main() {
 	if err := run(); err != nil {
-		slog.Error("service stopped with error", "error", err)
+		telemetry.NewLogger(os.Stdout, slog.LevelInfo, "trip-service").Error("service stopped with error", "error", err)
 		os.Exit(1)
 	}
 }
 
-func run() error {
+func run() (runErr error) {
 	// Загрузка конфигурации, читаем переменные окружения
 	cfg, err := config.Load()
 	if err != nil {
 		return err
 	}
-
-	// Создается json логгер
-	logger := slog.New(slog.NewJSONHandler(os.Stdout, &slog.HandlerOptions{Level: cfg.LogLevel}))
-	slog.SetDefault(logger)
-
-	// Контекст жизни приложения
-	ctx, stop := signal.NotifyContext(context.Background(), syscall.SIGINT, syscall.SIGTERM)
+	ctx, stop := signal.NotifyContext(
+		context.Background(),
+		syscall.SIGINT,
+		syscall.SIGTERM,
+	)
 	defer stop()
 
-	// Подключение к бд
-	pool, err := postgres.NewPool(ctx, cfg.DB)
+	app, err := container.New(ctx, cfg)
 	if err != nil {
 		return err
 	}
-	defer pool.Close() // Закрывается последним после остановки сервера
-	logger.Info("connected to database")
 
-	// Зависимости
-	txManager := postgres.NewTxManager(pool, cfg.DB.QueryTimeout)                 // Менеджер транзакций
-	tripRepo := postgres.NewTripRepository(txManager, cfg.DB.QueryTimeout)        // Репозиторий поездок для работы с таблицами бд
-	tripService := trip.NewService(txManager, tripRepo, cfg.IdempotencyTTL)       // Бизнес-логика для работы с поездками
-	handler := httpapi.NewHandler(pool, tripService, logger, cfg.DB.QueryTimeout) // HTTP-обраотчики
+	logger := app.Logger
+	srv := app.Server
 
-	// Создание HTTP сервера
-	srv := &http.Server{
-		Addr:              cfg.HTTP.Addr,
-		Handler:           httpapi.NewRouter(handler),
-		ReadTimeout:       cfg.HTTP.ReadTimeout,
-		ReadHeaderTimeout: cfg.HTTP.ReadHeaderTimeout,
-		WriteTimeout:      cfg.HTTP.WriteTimeout,
-		IdleTimeout:       cfg.HTTP.IdleTimeout,
-	}
+	defer func() {
+		shutdownCtx, cancel := context.WithTimeout(context.Background(), cfg.ShutdownTimeout)
+		defer cancel()
+		if err := shutdown(shutdownCtx, srv, app.Close); err != nil {
+			runErr = errors.Join(runErr, err)
+			return
+		}
+		logger.Info("service stopped")
+	}()
 
 	// Запуск сервера
 	serverErr := make(chan error, 1)
@@ -75,19 +66,8 @@ func run() error {
 	select {
 	case <-ctx.Done():
 		logger.Info("shutdown signal received")
+		return nil
 	case err := <-serverErr:
 		return fmt.Errorf("http server: %w", err)
 	}
-
-	// Graceful shutdown
-	shutdownCtx, cancel := context.WithTimeout(context.Background(), cfg.ShutdownTimeout)
-	defer cancel()
-
-	if err := srv.Shutdown(shutdownCtx); err != nil {
-		logger.Error("graceful shutdown timed out, forcing close", "error", err)
-		_ = srv.Close()
-	}
-
-	logger.Info("service stopped")
-	return nil
 }
