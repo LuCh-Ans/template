@@ -29,6 +29,7 @@ type requestState struct {
 	method    string
 	logger    *slog.Logger
 	responses *response.Writer
+	aborted   bool
 }
 
 // recoverRequest is also deferred at the router boundary so recovery completes
@@ -46,8 +47,9 @@ func (s *requestState) recoverRequest(w http.ResponseWriter, r *http.Request) {
 	span.SetAttributes(attribute.String("error.type", "panic"))
 	s.logger.ErrorContext(r.Context(), "panic in handler",
 		"panic", value, "stack", string(debug.Stack()), "method", s.method, "route", s.route)
-	// A committed response cannot be replaced with a JSON error.
+	// Schedule the abort after otelhttp records the response telemetry.
 	if writer, ok := w.(chimiddleware.WrapResponseWriter); ok && writer.Status() != 0 {
+		s.aborted = true
 		return
 	}
 	s.responses.Problem(w, r, http.StatusInternalServerError, "internal_error", "Internal Server Error", "Internal server error")
@@ -83,23 +85,26 @@ func Wrap(router *chi.Mux, logger *slog.Logger, responses *response.Writer) (htt
 		labeler.Add(attribute.String("http.route", state.route))
 		writer := chimiddleware.NewWrapResponseWriter(w, r.ProtoMajor)
 		started := time.Now()
+		defer func() {
+			status := writer.Status()
+			if status == 0 {
+				status = http.StatusOK
+			}
+			if status >= http.StatusBadRequest && !state.aborted {
+				span.SetStatus(codes.Error, http.StatusText(status))
+				span.SetAttributes(attribute.String("error.type", strconv.Itoa(status)))
+			}
+			level := slog.LevelInfo
+			if status >= http.StatusInternalServerError {
+				level = slog.LevelError
+			}
+			logger.Log(r.Context(), level, "request handled",
+				"method", state.method, "route", state.route, "status", status,
+				"duration_ms", float64(time.Since(started))/float64(time.Millisecond),
+				"aborted", state.aborted,
+			)
+		}()
 		metrics.ServeHTTP(writer, r)
-		status := writer.Status()
-		if status == 0 {
-			status = http.StatusOK
-		}
-		if status >= http.StatusBadRequest {
-			span.SetStatus(codes.Error, http.StatusText(status))
-			span.SetAttributes(attribute.String("error.type", strconv.Itoa(status)))
-		}
-		level := slog.LevelInfo
-		if status >= http.StatusInternalServerError {
-			level = slog.LevelError
-		}
-		logger.Log(r.Context(), level, "request handled",
-			"method", state.method, "route", state.route, "status", status,
-			"duration_ms", float64(time.Since(started))/float64(time.Millisecond),
-		)
 	})
 
 	tracing := otelhttp.NewHandler(logging, "http request",
@@ -117,6 +122,9 @@ func Wrap(router *chi.Mux, logger *slog.Logger, responses *response.Writer) (htt
 		r = r.WithContext(context.WithValue(r.Context(), stateKey{}, state))
 		defer state.recoverRequest(w, r)
 		tracing.ServeHTTP(w, r)
+		if state.aborted {
+			panic(http.ErrAbortHandler)
+		}
 	})
 	return recoverer, nil
 }

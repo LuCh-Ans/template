@@ -2,13 +2,17 @@ package middleware_test
 
 import (
 	"bytes"
+	"context"
 	"encoding/json"
+	"errors"
+	"io"
 	"log/slog"
 	"net/http"
 	"net/http/httptest"
 	"strconv"
 	"strings"
 	"testing"
+	"time"
 
 	"github.com/go-chi/chi/v5"
 	"go.opentelemetry.io/otel"
@@ -41,25 +45,7 @@ func TestMiddleware(t *testing.T) {
 		{"method not allowed", http.MethodPost, tripPath, "unmatched", 405, false},
 	} {
 		t.Run(tc.name, func(t *testing.T) {
-			previousTracer, previousMeter, previousPropagation := otel.GetTracerProvider(), otel.GetMeterProvider(), otel.GetTextMapPropagator()
-			exporter := tracetest.NewInMemoryExporter()
-			tp := sdktrace.NewTracerProvider(sdktrace.WithSyncer(exporter))
-			reader := sdkmetric.NewManualReader()
-			mp := sdkmetric.NewMeterProvider(sdkmetric.WithReader(reader))
-			otel.SetTracerProvider(tp)
-			otel.SetMeterProvider(mp)
-			otel.SetTextMapPropagator(propagation.TraceContext{})
-			defer func() {
-				otel.SetTracerProvider(previousTracer)
-				otel.SetMeterProvider(previousMeter)
-				otel.SetTextMapPropagator(previousPropagation)
-				if err := tp.Shutdown(t.Context()); err != nil {
-					t.Error(err)
-				}
-				if err := mp.Shutdown(t.Context()); err != nil {
-					t.Error(err)
-				}
-			}()
+			exporter, reader := setupTelemetry(t)
 
 			var output bytes.Buffer
 			logger := slog.New(slog.NewJSONHandler(&output, nil))
@@ -186,4 +172,109 @@ func assertDuration(t *testing.T, data metricdata.ResourceMetrics, route string,
 		}
 	}
 	t.Fatal("duration metric missing")
+}
+
+func setupTelemetry(t *testing.T) (*tracetest.InMemoryExporter, *sdkmetric.ManualReader) {
+	t.Helper()
+	previousTracer, previousMeter, previousPropagation := otel.GetTracerProvider(), otel.GetMeterProvider(), otel.GetTextMapPropagator()
+	exporter := tracetest.NewInMemoryExporter()
+	tp := sdktrace.NewTracerProvider(sdktrace.WithSyncer(exporter))
+	reader := sdkmetric.NewManualReader()
+	mp := sdkmetric.NewMeterProvider(sdkmetric.WithReader(reader))
+	otel.SetTracerProvider(tp)
+	otel.SetMeterProvider(mp)
+	otel.SetTextMapPropagator(propagation.TraceContext{})
+	t.Cleanup(func() {
+		otel.SetTracerProvider(previousTracer)
+		otel.SetMeterProvider(previousMeter)
+		otel.SetTextMapPropagator(previousPropagation)
+		if err := tp.Shutdown(context.WithoutCancel(t.Context())); err != nil {
+			t.Error(err)
+		}
+		if err := mp.Shutdown(context.WithoutCancel(t.Context())); err != nil {
+			t.Error(err)
+		}
+	})
+	return exporter, reader
+}
+
+func TestMiddlewareAbortsPartialResponse(t *testing.T) {
+	const route = "/partial"
+	exporter, reader := setupTelemetry(t)
+	var output bytes.Buffer
+	logger := slog.New(slog.NewJSONHandler(&output, nil))
+	router := chi.NewRouter()
+	router.Get(route, func(w http.ResponseWriter, _ *http.Request) {
+		w.Header().Set("Content-Type", "application/json")
+		w.WriteHeader(http.StatusOK)
+		if _, err := io.WriteString(w, "{"); err != nil {
+			panic(err)
+		}
+		if err := http.NewResponseController(w).Flush(); err != nil {
+			panic(err)
+		}
+		panic("after flush")
+	})
+	handler, err := middleware.Wrap(router, logger, response.New(logger))
+	if err != nil {
+		t.Fatal(err)
+	}
+	server := httptest.NewServer(handler)
+	defer server.Close()
+	client := server.Client()
+	client.Timeout = 5 * time.Second
+	req, err := http.NewRequestWithContext(t.Context(), http.MethodGet, server.URL+route, nil)
+	if err != nil {
+		t.Fatal(err)
+	}
+	resp, err := client.Do(req)
+	if err != nil {
+		t.Fatal(err)
+	}
+	defer func() {
+		if err := resp.Body.Close(); err != nil {
+			t.Error(err)
+		}
+	}()
+	body, readErr := io.ReadAll(resp.Body)
+	server.Close() // Wait for the handler before inspecting its log and telemetry.
+	if resp.StatusCode != http.StatusOK || string(body) != "{" || !errors.Is(readErr, io.ErrUnexpectedEOF) {
+		t.Fatalf("status = %d, body = %q, read error = %v", resp.StatusCode, body, readErr)
+	}
+	decoder := json.NewDecoder(&output)
+	var panicCount, requestCount int
+	for decoder.More() {
+		var record map[string]any
+		if err := decoder.Decode(&record); err != nil {
+			t.Fatal(err)
+		}
+		switch record["msg"] {
+		case "panic in handler":
+			panicCount++
+		case "request handled":
+			requestCount++
+			if record["status"] != float64(http.StatusOK) || record["aborted"] != true {
+				t.Fatalf("incorrect request log: %v", record)
+			}
+		}
+	}
+	if panicCount != 1 || requestCount != 1 {
+		t.Fatalf("panic logs = %d, request logs = %d", panicCount, requestCount)
+	}
+	spans := exporter.GetSpans()
+	if len(spans) != 1 || spans[0].Status.Code != codes.Error {
+		t.Fatalf("expected an ended error span, got %+v", spans)
+	}
+	attrs := attribute.NewSet(spans[0].Attributes...)
+	errorType, _ := attrs.Value("error.type")
+	status, _ := attrs.Value("http.response.status_code")
+	if errorType.AsString() != "panic" || status.AsInt64() != http.StatusOK {
+		t.Fatalf("incorrect span attributes: %v", spans[0].Attributes)
+	}
+	var after metricdata.ResourceMetrics
+	if err := reader.Collect(t.Context(), &after); err != nil {
+		t.Fatal(err)
+	}
+	assertActive(t, after, 0)
+	assertDuration(t, after, route, http.StatusOK)
 }
