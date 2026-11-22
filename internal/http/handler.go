@@ -17,34 +17,37 @@ import (
 	createhttp "github.com/LuCh-Ans/template/internal/http/trip/create"
 	finishhttp "github.com/LuCh-Ans/template/internal/http/trip/finish"
 	gethttp "github.com/LuCh-Ans/template/internal/http/trip/get"
+	positionshttp "github.com/LuCh-Ans/template/internal/http/trip/positions"
 )
 
 // Рализует сгенерированный api.ServerInterface, адаптер между HTTP и сервисом
 type Handler struct {
-	readiness     readinessChecker // Ping базы
-	createHandler *createhttp.Handler
-	logger        *slog.Logger
-	readyTimeout  time.Duration // сколько ждать Ping
-	getHandler    *gethttp.Handler
-	finishHandler *finishhttp.Handler
-	responses     *response.Writer
+	readiness        readinessChecker // Ping базы
+	createHandler    *createhttp.Handler
+	logger           *slog.Logger
+	readyTimeout     time.Duration // сколько ждать Ping
+	getHandler       *gethttp.Handler
+	finishHandler    *finishhttp.Handler
+	positionsHandler *positionshttp.Handler
+	responses        *response.Writer
 }
 
 // Если Handler перестанет соответствовать интерфейсу, проект не соберётся
 var _ api.ServerInterface = (*Handler)(nil)
 
 func NewHandler(readiness readinessChecker, createHandler *createhttp.Handler, getHandler *gethttp.Handler,
-	finishHandler *finishhttp.Handler, responses *response.Writer,
+	finishHandler *finishhttp.Handler, positionsHandler *positionshttp.Handler, responses *response.Writer,
 	logger *slog.Logger, readyTimeout time.Duration,
 ) *Handler {
 	return &Handler{
-		readiness:     readiness,
-		createHandler: createHandler,
-		getHandler:    getHandler,
-		finishHandler: finishHandler,
-		responses:     responses,
-		logger:        logger,
-		readyTimeout:  readyTimeout,
+		readiness:        readiness,
+		createHandler:    createHandler,
+		getHandler:       getHandler,
+		finishHandler:    finishHandler,
+		positionsHandler: positionsHandler,
+		responses:        responses,
+		logger:           logger,
+		readyTimeout:     readyTimeout,
 	}
 }
 

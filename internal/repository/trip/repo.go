@@ -29,7 +29,7 @@ var psql = sq.StatementBuilder.PlaceholderFormat(sq.Dollar)
 var tripColumns = []string{
 	"id", "user_id", "driver_id",
 	"start_latitude", "start_longitude", "end_latitude", "end_longitude",
-	"price", tripStatusColumn, "started_at", "finished_at",
+	"price", tripStatusColumn, "started_at", "finished_at", "last_position_at",
 }
 
 // Репозиторий поездок
@@ -55,7 +55,7 @@ func (r *TripRepository) Create(ctx context.Context, t domain.Trip) error {
 		Values(
 			t.ID, t.UserID, t.DriverID,
 			t.Start.Latitude, t.Start.Longitude, t.End.Latitude, t.End.Longitude,
-			t.Price, string(t.Status), t.StartedAt, t.FinishedAt,
+			t.Price, string(t.Status), t.StartedAt, t.FinishedAt, t.LastPositionAt,
 		).
 		ToSql()
 	if err != nil {
@@ -229,7 +229,7 @@ func scanTrip(row pgx.Row) (domain.Trip, error) {
 	err := row.Scan(
 		&t.ID, &t.UserID, &t.DriverID,
 		&t.Start.Latitude, &t.Start.Longitude, &t.End.Latitude, &t.End.Longitude,
-		&t.Price, &status, &t.StartedAt, &t.FinishedAt,
+		&t.Price, &status, &t.StartedAt, &t.FinishedAt, &t.LastPositionAt,
 	)
 	t.Status = domain.TripStatus(status)
 
@@ -238,6 +238,10 @@ func scanTrip(row pgx.Row) (domain.Trip, error) {
 	if t.FinishedAt != nil {
 		finished := t.FinishedAt.UTC()
 		t.FinishedAt = &finished
+	}
+	if t.LastPositionAt != nil {
+		at := t.LastPositionAt.UTC()
+		t.LastPositionAt = &at
 	}
 	return t, err
 }

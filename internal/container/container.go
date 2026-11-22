@@ -17,6 +17,7 @@ import (
 	createhttp "github.com/LuCh-Ans/template/internal/http/trip/create"
 	finishhttp "github.com/LuCh-Ans/template/internal/http/trip/finish"
 	gethttp "github.com/LuCh-Ans/template/internal/http/trip/get"
+	positionshttp "github.com/LuCh-Ans/template/internal/http/trip/positions"
 	"github.com/LuCh-Ans/template/internal/infra/postgres"
 	"github.com/LuCh-Ans/template/internal/infra/postgres/transaction"
 	"github.com/LuCh-Ans/template/internal/infra/telemetry"
@@ -24,6 +25,8 @@ import (
 	"github.com/LuCh-Ans/template/internal/usecase/trip/create"
 	"github.com/LuCh-Ans/template/internal/usecase/trip/finish"
 	"github.com/LuCh-Ans/template/internal/usecase/trip/get"
+	"github.com/LuCh-Ans/template/internal/usecase/trip/listpositions"
+	"github.com/LuCh-Ans/template/internal/usecase/trip/saveposition"
 )
 
 type Container struct {
@@ -105,12 +108,18 @@ func New(ctx context.Context, cfg config.Config) (_ *Container, err error) {
 	createHandler := createhttp.New(createTrip, responses)
 	getHandler := gethttp.New(getTrip, responses)
 	finishHandler := finishhttp.New(finishTrip, responses)
+	positionsHandler := positionshttp.New(
+		saveposition.New(txManager, tripRepo, time.Now),
+		listpositions.New(tripRepo),
+		responses,
+	)
 
 	handler := httpapi.NewHandler(
 		pool,
 		createHandler,
 		getHandler,
 		finishHandler,
+		positionsHandler,
 		responses,
 		logger,
 		cfg.DB.QueryTimeout,

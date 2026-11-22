@@ -18,6 +18,8 @@ type Config struct {
 	ShutdownTimeout time.Duration
 	IdempotencyTTL  time.Duration
 	Telemetry       TelemetryConfig
+	Positions       PositionsConfig
+	Push            PushConfig
 }
 
 // Группирует все параметры HTTP сервера
@@ -37,6 +39,18 @@ type DBConfig struct {
 	ConnectTimeout  time.Duration
 	QueryTimeout    time.Duration
 	MaxConnLifetime time.Duration
+}
+
+type PositionsConfig struct {
+	CheckInterval time.Duration
+	StaleAfter    time.Duration
+	Workers       int
+	QueueSize     int
+}
+
+type PushConfig struct {
+	HTTPURL        string
+	RequestTimeout time.Duration
 }
 
 type TelemetryConfig struct {
@@ -77,6 +91,16 @@ func Load() (Config, error) {
 			ExportTimeout:  l.milliseconds("OTEL_EXPORTER_OTLP_TIMEOUT", "2000"),
 			BatchTimeout:   l.milliseconds("OTEL_BSP_SCHEDULE_DELAY", "1000"),
 		},
+		Positions: PositionsConfig{
+			CheckInterval: l.duration("POSITION_CHECK_INTERVAL", "30s"),
+			StaleAfter:    l.duration("POSITION_STALE_AFTER", "60s"),
+			Workers:       int(l.positiveInteger("POSITION_WORKERS", "4")),
+			QueueSize:     int(l.positiveInteger("POSITION_QUEUE_SIZE", "100")),
+		},
+		Push: PushConfig{
+			HTTPURL:        l.required("PUSH_HTTP_URL"),
+			RequestTimeout: l.duration("PUSH_REQUEST_TIMEOUT", "1s"),
+		},
 		ShutdownTimeout: l.duration("SHUTDOWN_TIMEOUT", "10s"),
 		IdempotencyTTL:  l.duration("IDEMPOTENCY_KEY_TTL", "24h"),
 	}
@@ -95,12 +119,8 @@ func Load() (Config, error) {
 	if cfg.Telemetry.Protocol != "http/protobuf" {
 		l.fail(fmt.Errorf("OTEL_EXPORTER_OTLP_PROTOCOL must be http/protobuf, got %q", cfg.Telemetry.Protocol))
 	}
-	endpoint, err := url.Parse(cfg.Telemetry.Endpoint)
-	if err != nil {
-		l.fail(fmt.Errorf("OTEL_EXPORTER_OTLP_ENDPOINT: %w", err))
-	} else if endpoint.Hostname() == "" || (endpoint.Scheme != "http" && endpoint.Scheme != "https") {
-		l.fail(errors.New("OTEL_EXPORTER_OTLP_ENDPOINT must be an absolute HTTP or HTTPS URL"))
-	}
+	l.validateHTTPURL("OTEL_EXPORTER_OTLP_ENDPOINT", cfg.Telemetry.Endpoint)
+	l.validateHTTPURL("PUSH_HTTP_URL", cfg.Push.HTTPURL)
 
 	if len(l.errs) > 0 {
 		return Config{}, fmt.Errorf("invalid config: %w", errors.Join(l.errs...))
@@ -158,9 +178,23 @@ func (l *loader) integer(key, def string) int32 {
 
 // Стандартные переменные OpenTelemetry задают время в миллисекундах.
 func (l *loader) milliseconds(key, def string) time.Duration {
+	return time.Duration(l.positiveInteger(key, def)) * time.Millisecond
+}
+
+func (l *loader) positiveInteger(key, def string) int32 {
 	n := l.integer(key, def)
 	if n <= 0 {
 		l.fail(fmt.Errorf("%s must be positive, got %d", key, n))
 	}
-	return time.Duration(n) * time.Millisecond
+	return n
+}
+
+func (l *loader) validateHTTPURL(key, raw string) {
+	if raw == "" {
+		return // required already reported the missing value.
+	}
+	endpoint, err := url.Parse(raw)
+	if err != nil || endpoint.Hostname() == "" || (endpoint.Scheme != "http" && endpoint.Scheme != "https") {
+		l.fail(fmt.Errorf("%s must be an absolute HTTP or HTTPS URL", key))
+	}
 }

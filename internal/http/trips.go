@@ -17,3 +17,11 @@ func (h *Handler) GetTrip(w http.ResponseWriter, r *http.Request, tripId api.Tri
 func (h *Handler) FinishTrip(w http.ResponseWriter, r *http.Request, tripId api.TripId) {
 	h.finishHandler.Handle(w, r, tripId)
 }
+
+func (h *Handler) CreateTripPosition(w http.ResponseWriter, r *http.Request, id api.TripId) {
+	h.positionsHandler.Create(w, r, id)
+}
+
+func (h *Handler) ListTripPositions(w http.ResponseWriter, r *http.Request, id api.TripId) {
+	h.positionsHandler.List(w, r, id)
+}

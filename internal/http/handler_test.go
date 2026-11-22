@@ -15,7 +15,7 @@ import (
 
 func TestRouterFallbackProblems(t *testing.T) {
 	logger := slog.New(slog.NewJSONHandler(io.Discard, nil))
-	handler := httpapi.NewHandler(nil, nil, nil, nil, response.New(logger), logger, time.Second)
+	handler := httpapi.NewHandler(nil, nil, nil, nil, nil, response.New(logger), logger, time.Second)
 	router, err := httpapi.NewRouter(handler)
 	if err != nil {
 		t.Fatal(err)

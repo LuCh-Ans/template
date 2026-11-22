@@ -10,3 +10,5 @@ output-options:
     - finishTrip
     - health
     - ready
+    - createTripPosition
+    - listTripPositions
