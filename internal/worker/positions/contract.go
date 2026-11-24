@@ -4,6 +4,8 @@ import (
 	"context"
 	"time"
 
+	"github.com/google/uuid"
+
 	domain "github.com/LuCh-Ans/template/internal/domain/trip"
 )
 
@@ -11,6 +13,12 @@ import (
 
 type staleTripRepository interface {
 	ListStaleTrips(ctx context.Context, staleAfter time.Duration) ([]domain.StaleTrip, error)
+}
+
+// Реализация гейтвея сопоставляет аргументы HTTP-контракту Push Service:
+// recipient_id = driverID, kind = REQUEST_POSITION, data.trip_id = tripID.
+type positionRequester interface {
+	RequestPosition(ctx context.Context, tripID, driverID uuid.UUID, requestID string) error
 }
 
 // Ticker позволяет управлять тиками в тестах без ожидания реального времени.

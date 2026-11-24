@@ -11,10 +11,12 @@ import (
 
 	"github.com/google/uuid"
 	"github.com/jackc/pgx/v5/pgconn"
+	"go.opentelemetry.io/otel/trace"
 
 	domain "github.com/LuCh-Ans/template/internal/domain/trip"
 	"github.com/LuCh-Ans/template/internal/usecase/trip/listpositions"
 	"github.com/LuCh-Ans/template/internal/usecase/trip/saveposition"
+	"github.com/LuCh-Ans/template/internal/worker/positions"
 )
 
 func TestSavePosition(t *testing.T) {
@@ -27,18 +29,30 @@ func TestSavePosition(t *testing.T) {
 		t.Fatal(err)
 	}
 	latest := trip.StartedAt.Add(time.Minute)
-	useCase := saveposition.New(store.tx, store.repo, func() time.Time { return latest })
+	queue, err := positions.NewQueue(4)
+	if err != nil {
+		t.Fatal(err)
+	}
+	defer queue.Close()
+	stale := domain.StaleTrip{ID: trip.ID, DriverID: trip.DriverID}
+	useCase := saveposition.New(store.tx, store.repo, queue, func() time.Time { return latest })
 	position := domain.Position{
 		TripID: trip.ID, Coordinates: domain.Point{Latitude: 59.93, Longitude: 30.3},
 		RecordedAt: latest,
 	}
 	for _, at := range []time.Time{latest, latest.Add(-time.Second)} {
+		if result := queue.TryEnqueue(stale, trace.SpanContext{}); result != positions.Queued {
+			t.Fatalf("previous successful save did not cancel waiting task: %s", result)
+		}
 		position.RecordedAt = at
 		saved, err := useCase.SavePosition(ctx, position)
 		if err != nil || saved.ID <= 0 || saved.TripID != trip.ID ||
 			saved.Coordinates != position.Coordinates || !saved.RecordedAt.Equal(at) {
 			t.Fatalf("SavePosition = %+v, %v", saved, err)
 		}
+	}
+	if result := queue.TryEnqueue(stale, trace.SpanContext{}); result != positions.Queued {
+		t.Fatalf("successful save did not cancel waiting task: %s", result)
 	}
 
 	// This constraint rejects a valid domain point only at the INSERT.
@@ -51,6 +65,9 @@ func TestSavePosition(t *testing.T) {
 	var pgErr *pgconn.PgError
 	if _, err := useCase.SavePosition(ctx, rejected); !errors.As(err, &pgErr) || pgErr.Code != "23514" {
 		t.Fatalf("expected INSERT check violation, got %v", err)
+	}
+	if result := queue.TryEnqueue(stale, trace.SpanContext{}); result != positions.Duplicate {
+		t.Fatalf("failed save cancelled waiting task: %s", result)
 	}
 
 	got, err := store.repo.GetByID(ctx, trip.ID)
@@ -93,7 +110,12 @@ func TestListPositions(t *testing.T) {
 
 	early := trip.StartedAt.Add(time.Second)
 	later := early.Add(time.Second)
-	save := saveposition.New(store.tx, store.repo, func() time.Time { return later })
+	queue, err := positions.NewQueue(1)
+	if err != nil {
+		t.Fatal(err)
+	}
+	defer queue.Close()
+	save := saveposition.New(store.tx, store.repo, queue, func() time.Time { return later })
 	inserted := make([]domain.Position, 0, 3)
 	for _, at := range []time.Time{later, early, early} {
 		saved, err := save.SavePosition(ctx, domain.Position{TripID: trip.ID, RecordedAt: at})

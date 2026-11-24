@@ -27,6 +27,7 @@ import (
 	"github.com/LuCh-Ans/template/internal/usecase/trip/get"
 	"github.com/LuCh-Ans/template/internal/usecase/trip/listpositions"
 	"github.com/LuCh-Ans/template/internal/usecase/trip/saveposition"
+	"github.com/LuCh-Ans/template/internal/worker/positions"
 )
 
 type Container struct {
@@ -108,8 +109,12 @@ func New(ctx context.Context, cfg config.Config) (_ *Container, err error) {
 	createHandler := createhttp.New(createTrip, responses)
 	getHandler := gethttp.New(getTrip, responses)
 	finishHandler := finishhttp.New(finishTrip, responses)
+	positionQueue, err := positions.NewQueue(cfg.Positions.QueueSize)
+	if err != nil {
+		return nil, fmt.Errorf("initialize position queue: %w", err)
+	}
 	positionsHandler := positionshttp.New(
-		saveposition.New(txManager, tripRepo, time.Now),
+		saveposition.New(txManager, tripRepo, positionQueue, time.Now),
 		listpositions.New(tripRepo),
 		responses,
 	)

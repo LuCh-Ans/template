@@ -9,13 +9,14 @@ import (
 )
 
 type UseCase struct {
-	tx   txManager
-	repo positionRepository
-	now  func() time.Time
+	tx    txManager
+	repo  positionRepository
+	tasks positionTasks
+	now   func() time.Time
 }
 
-func New(tx txManager, repo positionRepository, now func() time.Time) *UseCase {
-	return &UseCase{tx: tx, repo: repo, now: now}
+func New(tx txManager, repo positionRepository, tasks positionTasks, now func() time.Time) *UseCase {
+	return &UseCase{tx: tx, repo: repo, tasks: tasks, now: now}
 }
 
 func (u *UseCase) SavePosition(ctx context.Context, position domain.Position) (domain.Position, error) {
@@ -35,5 +36,7 @@ func (u *UseCase) SavePosition(ctx context.Context, position domain.Position) (d
 	if err != nil {
 		return domain.Position{}, fmt.Errorf("save position: %w", err)
 	}
+	// Только после успешного коммита. При откате задача должна остаться в очереди.
+	u.tasks.Cancel(position.TripID)
 	return saved, nil
 }

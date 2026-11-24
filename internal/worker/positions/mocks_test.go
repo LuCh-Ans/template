@@ -15,6 +15,7 @@ import (
 	time "time"
 
 	trip "github.com/LuCh-Ans/template/internal/domain/trip"
+	uuid "github.com/google/uuid"
 	gomock "go.uber.org/mock/gomock"
 )
 
@@ -55,6 +56,44 @@ func (m *MockstaleTripRepository) ListStaleTrips(ctx context.Context, staleAfter
 func (mr *MockstaleTripRepositoryMockRecorder) ListStaleTrips(ctx, staleAfter any) *gomock.Call {
 	mr.mock.ctrl.T.Helper()
 	return mr.mock.ctrl.RecordCallWithMethodType(mr.mock, "ListStaleTrips", reflect.TypeOf((*MockstaleTripRepository)(nil).ListStaleTrips), ctx, staleAfter)
+}
+
+// MockpositionRequester is a mock of positionRequester interface.
+type MockpositionRequester struct {
+	ctrl     *gomock.Controller
+	recorder *MockpositionRequesterMockRecorder
+	isgomock struct{}
+}
+
+// MockpositionRequesterMockRecorder is the mock recorder for MockpositionRequester.
+type MockpositionRequesterMockRecorder struct {
+	mock *MockpositionRequester
+}
+
+// NewMockpositionRequester creates a new mock instance.
+func NewMockpositionRequester(ctrl *gomock.Controller) *MockpositionRequester {
+	mock := &MockpositionRequester{ctrl: ctrl}
+	mock.recorder = &MockpositionRequesterMockRecorder{mock}
+	return mock
+}
+
+// EXPECT returns an object that allows the caller to indicate expected use.
+func (m *MockpositionRequester) EXPECT() *MockpositionRequesterMockRecorder {
+	return m.recorder
+}
+
+// RequestPosition mocks base method.
+func (m *MockpositionRequester) RequestPosition(ctx context.Context, tripID, driverID uuid.UUID, requestID string) error {
+	m.ctrl.T.Helper()
+	ret := m.ctrl.Call(m, "RequestPosition", ctx, tripID, driverID, requestID)
+	ret0, _ := ret[0].(error)
+	return ret0
+}
+
+// RequestPosition indicates an expected call of RequestPosition.
+func (mr *MockpositionRequesterMockRecorder) RequestPosition(ctx, tripID, driverID, requestID any) *gomock.Call {
+	mr.mock.ctrl.T.Helper()
+	return mr.mock.ctrl.RecordCallWithMethodType(mr.mock, "RequestPosition", reflect.TypeOf((*MockpositionRequester)(nil).RequestPosition), ctx, tripID, driverID, requestID)
 }
 
 // MockTicker is a mock of Ticker interface.
