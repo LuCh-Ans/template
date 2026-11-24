@@ -3,11 +3,17 @@ package main
 import (
 	"context"
 	"errors"
+	"io"
 	"net/http"
+	"net/http/httptest"
 	"testing"
 	"testing/synctest"
 	"time"
+
+	"go.uber.org/goleak"
 )
+
+func TestMain(m *testing.M) { goleak.VerifyTestMain(m) }
 
 func TestShutdownDeadline(t *testing.T) {
 	synctest.Test(t, func(t *testing.T) {
@@ -66,4 +72,56 @@ func errorName(err error) string {
 		return "success"
 	}
 	return "failure"
+}
+
+func TestShutdownWaitsForHTTPBeforeBackgroundComponents(t *testing.T) {
+	entered, release, handlerDone := make(chan struct{}), make(chan struct{}), make(chan struct{})
+	server := httptest.NewServer(http.HandlerFunc(func(w http.ResponseWriter, _ *http.Request) {
+		close(entered)
+		<-release
+		defer close(handlerDone)
+		w.WriteHeader(http.StatusNoContent)
+	}))
+	defer server.Close()
+	clientDone := make(chan error, 1)
+	go func() {
+		response, err := server.Client().Get(server.URL)
+		if err == nil {
+			_, err = io.Copy(io.Discard, response.Body)
+			if closeErr := response.Body.Close(); err == nil {
+				err = closeErr
+			}
+		}
+		clientDone <- err
+	}()
+	<-entered
+	shutdownStarted, cleanupCalled := make(chan struct{}), make(chan struct{})
+	server.Config.RegisterOnShutdown(func() { close(shutdownStarted) })
+	ctx, cancel := context.WithTimeout(t.Context(), 5*time.Second)
+	defer cancel()
+	result := make(chan error, 1)
+	go func() {
+		result <- shutdown(ctx, server.Config, func(context.Context) error {
+			select {
+			case <-handlerDone:
+			default:
+				t.Error("background shutdown preceded HTTP completion")
+			}
+			close(cleanupCalled)
+			return nil
+		})
+	}()
+	<-shutdownStarted
+	select {
+	case <-cleanupCalled:
+		t.Error("cleanup called while HTTP request was active")
+	default:
+	}
+	close(release)
+	if err := <-clientDone; err != nil {
+		t.Fatal(err)
+	}
+	if err := <-result; err != nil {
+		t.Fatal(err)
+	}
 }

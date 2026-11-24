@@ -31,6 +31,7 @@ func TestSavePositionCancelsTaskOnlyAfterCommit(t *testing.T) {
 		t.Run(tt.name, func(t *testing.T) {
 			ctrl := gomock.NewController(t)
 			repo, tx, tasks := NewMockpositionRepository(ctrl), NewMocktxManager(ctrl), NewMockpositionTasks(ctrl)
+			metrics := NewMockpositionMetrics(ctrl)
 			now := time.Date(2026, 11, 1, 12, 0, 0, 0, time.UTC)
 			input := domain.Position{TripID: uuid.New(), RecordedAt: now}
 			saved := input
@@ -57,8 +58,13 @@ func TestSavePositionCancelsTaskOnlyAfterCommit(t *testing.T) {
 						t.Fatal("task cancelled before commit")
 					}
 				})
+				metrics.EXPECT().PositionSaved(t.Context()).Do(func(context.Context) {
+					if !committed {
+						t.Fatal("position metric recorded before commit")
+					}
+				})
 			}
-			useCase := saveposition.New(tx, repo, tasks, func() time.Time { return now })
+			useCase := saveposition.New(tx, repo, tasks, metrics, func() time.Time { return now })
 			got, err := useCase.SavePosition(t.Context(), input)
 			if !errors.Is(err, wantErr) {
 				t.Fatalf("error=%v, want %v", err, wantErr)
@@ -77,7 +83,7 @@ func TestSavePositionCancelsTaskOnlyAfterCommit(t *testing.T) {
 func TestSavePositionValidationDoesNotCancelTask(t *testing.T) {
 	ctrl := gomock.NewController(t)
 	repo, tx, tasks := NewMockpositionRepository(ctrl), NewMocktxManager(ctrl), NewMockpositionTasks(ctrl)
-	useCase := saveposition.New(tx, repo, tasks, time.Now)
+	useCase := saveposition.New(tx, repo, tasks, NewMockpositionMetrics(ctrl), time.Now)
 	if _, err := useCase.SavePosition(t.Context(), domain.Position{}); err == nil {
 		t.Fatal("invalid position accepted")
 	}

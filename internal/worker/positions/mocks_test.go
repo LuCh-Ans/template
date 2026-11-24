@@ -96,6 +96,80 @@ func (mr *MockpositionRequesterMockRecorder) RequestPosition(ctx, tripID, driver
 	return mr.mock.ctrl.RecordCallWithMethodType(mr.mock, "RequestPosition", reflect.TypeOf((*MockpositionRequester)(nil).RequestPosition), ctx, tripID, driverID, requestID)
 }
 
+// MockscannerRunner is a mock of scannerRunner interface.
+type MockscannerRunner struct {
+	ctrl     *gomock.Controller
+	recorder *MockscannerRunnerMockRecorder
+	isgomock struct{}
+}
+
+// MockscannerRunnerMockRecorder is the mock recorder for MockscannerRunner.
+type MockscannerRunnerMockRecorder struct {
+	mock *MockscannerRunner
+}
+
+// NewMockscannerRunner creates a new mock instance.
+func NewMockscannerRunner(ctrl *gomock.Controller) *MockscannerRunner {
+	mock := &MockscannerRunner{ctrl: ctrl}
+	mock.recorder = &MockscannerRunnerMockRecorder{mock}
+	return mock
+}
+
+// EXPECT returns an object that allows the caller to indicate expected use.
+func (m *MockscannerRunner) EXPECT() *MockscannerRunnerMockRecorder {
+	return m.recorder
+}
+
+// Run mocks base method.
+func (m *MockscannerRunner) Run(ctx context.Context, ticker Ticker) {
+	m.ctrl.T.Helper()
+	m.ctrl.Call(m, "Run", ctx, ticker)
+}
+
+// Run indicates an expected call of Run.
+func (mr *MockscannerRunnerMockRecorder) Run(ctx, ticker any) *gomock.Call {
+	mr.mock.ctrl.T.Helper()
+	return mr.mock.ctrl.RecordCallWithMethodType(mr.mock, "Run", reflect.TypeOf((*MockscannerRunner)(nil).Run), ctx, ticker)
+}
+
+// MockpoolRunner is a mock of poolRunner interface.
+type MockpoolRunner struct {
+	ctrl     *gomock.Controller
+	recorder *MockpoolRunnerMockRecorder
+	isgomock struct{}
+}
+
+// MockpoolRunnerMockRecorder is the mock recorder for MockpoolRunner.
+type MockpoolRunnerMockRecorder struct {
+	mock *MockpoolRunner
+}
+
+// NewMockpoolRunner creates a new mock instance.
+func NewMockpoolRunner(ctrl *gomock.Controller) *MockpoolRunner {
+	mock := &MockpoolRunner{ctrl: ctrl}
+	mock.recorder = &MockpoolRunnerMockRecorder{mock}
+	return mock
+}
+
+// EXPECT returns an object that allows the caller to indicate expected use.
+func (m *MockpoolRunner) EXPECT() *MockpoolRunnerMockRecorder {
+	return m.recorder
+}
+
+// Run mocks base method.
+func (m *MockpoolRunner) Run(ctx context.Context) error {
+	m.ctrl.T.Helper()
+	ret := m.ctrl.Call(m, "Run", ctx)
+	ret0, _ := ret[0].(error)
+	return ret0
+}
+
+// Run indicates an expected call of Run.
+func (mr *MockpoolRunnerMockRecorder) Run(ctx any) *gomock.Call {
+	mr.mock.ctrl.T.Helper()
+	return mr.mock.ctrl.RecordCallWithMethodType(mr.mock, "Run", reflect.TypeOf((*MockpoolRunner)(nil).Run), ctx)
+}
+
 // MockTicker is a mock of Ticker interface.
 type MockTicker struct {
 	ctrl     *gomock.Controller

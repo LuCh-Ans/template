@@ -21,6 +21,14 @@ type positionRequester interface {
 	RequestPosition(ctx context.Context, tripID, driverID uuid.UUID, requestID string) error
 }
 
+type scannerRunner interface {
+	Run(ctx context.Context, ticker Ticker)
+}
+
+type poolRunner interface {
+	Run(ctx context.Context) error
+}
+
 // Ticker позволяет управлять тиками в тестах без ожидания реального времени.
 type Ticker interface {
 	C() <-chan time.Time

@@ -19,6 +19,10 @@ import (
 	"github.com/LuCh-Ans/template/internal/worker/positions"
 )
 
+type noopPositionMetrics struct{}
+
+func (noopPositionMetrics) PositionSaved(context.Context) {}
+
 func TestSavePosition(t *testing.T) {
 	store := newIntegrationStore(t)
 	ctx, cancel := context.WithTimeout(t.Context(), 10*time.Second)
@@ -35,7 +39,7 @@ func TestSavePosition(t *testing.T) {
 	}
 	defer queue.Close()
 	stale := domain.StaleTrip{ID: trip.ID, DriverID: trip.DriverID}
-	useCase := saveposition.New(store.tx, store.repo, queue, func() time.Time { return latest })
+	useCase := saveposition.New(store.tx, store.repo, queue, noopPositionMetrics{}, func() time.Time { return latest })
 	position := domain.Position{
 		TripID: trip.ID, Coordinates: domain.Point{Latitude: 59.93, Longitude: 30.3},
 		RecordedAt: latest,
@@ -115,7 +119,7 @@ func TestListPositions(t *testing.T) {
 		t.Fatal(err)
 	}
 	defer queue.Close()
-	save := saveposition.New(store.tx, store.repo, queue, func() time.Time { return later })
+	save := saveposition.New(store.tx, store.repo, queue, noopPositionMetrics{}, func() time.Time { return later })
 	inserted := make([]domain.Position, 0, 3)
 	for _, at := range []time.Time{later, early, early} {
 		saved, err := save.SavePosition(ctx, domain.Position{TripID: trip.ID, RecordedAt: at})

@@ -11,6 +11,7 @@ import (
 type TripMetrics struct {
 	created      metric.Int64Counter
 	completed    metric.Int64Counter
+	positions    metric.Int64Counter
 	registration metric.Registration
 }
 
@@ -35,6 +36,10 @@ func NewTripMetrics(repo activeTripCounter) (*TripMetrics, error) {
 		return nil, fmt.Errorf("create trips completed counter: %w", err)
 	}
 
+	positions, err := meter.Int64Counter("tripgo.positions.saved", metric.WithUnit("{position}"))
+	if err != nil {
+		return nil, fmt.Errorf("create positions saved counter: %w", err)
+	}
 	active, err := meter.Int64ObservableGauge(
 		"tripgo.trips.active",
 		metric.WithUnit("{trip}"),
@@ -64,6 +69,7 @@ func NewTripMetrics(repo activeTripCounter) (*TripMetrics, error) {
 	return &TripMetrics{
 		created:      created,
 		completed:    completed,
+		positions:    positions,
 		registration: registration,
 	}, nil
 }
@@ -75,6 +81,8 @@ func (m *TripMetrics) TripCreated(ctx context.Context) {
 func (m *TripMetrics) TripCompleted(ctx context.Context) {
 	m.completed.Add(ctx, 1)
 }
+
+func (m *TripMetrics) PositionSaved(ctx context.Context) { m.positions.Add(ctx, 1) }
 
 func (m *TripMetrics) Close() error {
 	return m.registration.Unregister()

@@ -53,6 +53,12 @@ func run() (runErr error) {
 		logger.Info("service stopped")
 	}()
 
+	// Сигнал ОС сначала останавливает HTTP. Фоновые компоненты завершит app.Close
+	// после обработки текущих запросов, поэтому они живут в отдельном контексте.
+	if err := app.Start(context.WithoutCancel(ctx)); err != nil {
+		return fmt.Errorf("start position workers: %w", err)
+	}
+
 	// Запуск сервера
 	serverErr := make(chan error, 1)
 	go func() {

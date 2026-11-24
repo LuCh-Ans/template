@@ -34,7 +34,7 @@ test:
 	go tool cover -func=bin/coverage.out
 
 test-integration:
-	go test -race -tags=integration -count=2 ./internal/repository/...
+	go test -race -tags=integration -count=2 ./internal/repository/... ./internal/container/...
 
 docker-build:
 	docker build -f deploy/Dockerfile -t $(IMAGE) .

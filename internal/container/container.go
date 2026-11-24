@@ -12,6 +12,7 @@ import (
 	"github.com/jackc/pgx/v5/pgxpool"
 
 	"github.com/LuCh-Ans/template/internal/config"
+	"github.com/LuCh-Ans/template/internal/gateway/push"
 	httpapi "github.com/LuCh-Ans/template/internal/http"
 	"github.com/LuCh-Ans/template/internal/http/response"
 	createhttp "github.com/LuCh-Ans/template/internal/http/trip/create"
@@ -36,6 +37,9 @@ type Container struct {
 	pool              *pgxpool.Pool
 	shutdownTelemetry func(context.Context) error
 	tripMetrics       *telemetry.TripMetrics
+	positionRunner    *positions.Runner
+	positionPool      *positions.Pool
+	pushClient        *push.Gateway
 }
 
 func New(ctx context.Context, cfg config.Config) (_ *Container, err error) {
@@ -113,8 +117,23 @@ func New(ctx context.Context, cfg config.Config) (_ *Container, err error) {
 	if err != nil {
 		return nil, fmt.Errorf("initialize position queue: %w", err)
 	}
+	pushClient, err := push.New(cfg.Push.HTTPURL, cfg.Push.RequestTimeout)
+	if err != nil {
+		return nil, fmt.Errorf("initialize push gateway: %w", err)
+	}
+	app.pushClient = pushClient
+	positionPool, err := positions.NewPool(positionQueue, pushClient, cfg.Positions.Workers, cfg.Push.RequestTimeout, logger)
+	if err != nil {
+		return nil, fmt.Errorf("initialize position worker pool: %w", err)
+	}
+	app.positionPool = positionPool
+	positionScanner, err := positions.NewScanner(tripRepo, positionQueue, cfg.Positions.StaleAfter, logger)
+	if err != nil {
+		return nil, fmt.Errorf("initialize position scanner: %w", err)
+	}
+	app.positionRunner = positions.NewRunner(positionScanner, positionPool, positions.NewTicker(cfg.Positions.CheckInterval))
 	positionsHandler := positionshttp.New(
-		saveposition.New(txManager, tripRepo, positionQueue, time.Now),
+		saveposition.New(txManager, tripRepo, positionQueue, tripMetrics, time.Now),
 		listpositions.New(tripRepo),
 		responses,
 	)
@@ -147,9 +166,24 @@ func New(ctx context.Context, cfg config.Config) (_ *Container, err error) {
 	return app, nil
 }
 
+// Start вызывается после успешной сборки контейнера с контекстом приложения.
+func (c *Container) Start(ctx context.Context) error { return c.positionRunner.Start(ctx) }
+
 func (c *Container) Close(ctx context.Context) error {
+	var err error
+	// main уже завершил входящие HTTP-запросы. Только теперь останавливаем сканер
+	// и дорабатываем очередь в оставшееся время общего SHUTDOWN_TIMEOUT.
+	if c.positionRunner != nil {
+		err = c.positionRunner.Stop(ctx)
+	}
+	if c.pushClient != nil {
+		c.pushClient.Close()
+	}
 	// Финальный сбор gauge обращается к PostgreSQL
-	err := c.shutdownTelemetry(ctx)
+	err = errors.Join(err, c.shutdownTelemetry(ctx))
+	if c.positionPool != nil {
+		err = errors.Join(err, c.positionPool.Close())
+	}
 
 	if c.tripMetrics != nil {
 		err = errors.Join(err, c.tripMetrics.Close())

@@ -36,6 +36,8 @@ func TestTripMetrics(t *testing.T) {
 	metrics.TripCreated(t.Context())
 	metrics.TripCreated(t.Context())
 	metrics.TripCompleted(t.Context())
+	metrics.PositionSaved(t.Context())
+	metrics.PositionSaved(t.Context())
 
 	for _, count := range []int64{7, 3, 0} {
 		source.EXPECT().CountActive(gomock.Any()).Return(count, nil)
@@ -63,7 +65,7 @@ func TestTripMetrics(t *testing.T) {
 				}
 			}
 		}
-		for name, want := range map[string]int64{"tripgo.trips.created": 2, "tripgo.trips.completed": 1, "tripgo.trips.active": count} {
+		for name, want := range map[string]int64{"tripgo.trips.created": 2, "tripgo.trips.completed": 1, "tripgo.trips.active": count, "tripgo.positions.saved": 2} {
 			if got, ok := values[name]; !ok || got != want {
 				t.Fatalf("%s = %d (present=%v), want %d", name, got, ok, want)
 			}
