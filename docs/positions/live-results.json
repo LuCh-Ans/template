@@ -1,0 +1,79 @@
+{
+  "run_id": "lab03-live-9c7228d73589",
+  "started_at": "2026-11-24T23:26:34.500647Z",
+  "environment": "tripgo-lab-03",
+  "isolated_schema": "lab03_live_9c7228d73589",
+  "check_interval_s": 5,
+  "stale_after_s": 10,
+  "workers": 2,
+  "queue_size": 10,
+  "push_timeout_s": 1,
+  "shutdown_timeout_s": 10,
+  "fresh_and_silent": {
+    "silent_requests": 4,
+    "repeat_intervals_s": [
+      4.994,
+      5.004,
+      4.995
+    ],
+    "fresh_positions_saved": 12,
+    "fresh_requests": 0,
+    "completed_requests": 0,
+    "sigterm_s": 0.008
+  },
+  "overload": {
+    "active_trips": 200,
+    "push_latency_ms": 5000,
+    "duration_s": 151.42,
+    "dropped_checks": 5448.0,
+    "push_errors": 282.0,
+    "queue_sample": [
+      6.0
+    ],
+    "workers_sample": [
+      2.0
+    ],
+    "ready_latency_max_ms": 10.31,
+    "rss_min_mib": 49.78,
+    "rss_max_mib": 79.94,
+    "rss_last_mib": 54.2,
+    "instance": "lab03-live-9c7228d73589-load",
+    "from_epoch": 1795563149.722312,
+    "to_epoch": 1795563301.144821,
+    "sigterm_s": 3.685,
+    "queue_peak": 8.0,
+    "workers_peak": 2.0
+  },
+  "restart": {
+    "accepted_requests_observed": 24,
+    "persisted_active_trips": 200,
+    "sigterm_s": 0.007
+  },
+  "status": "passed",
+  "cleaned_up": true,
+  "explain": {
+    "rows": 6000,
+    "index": "trips_active_position_age_idx",
+    "node": "Bitmap Index Scan",
+    "seq_scan": false
+  },
+  "notes": [
+    "Первичный замер интервалов после запуска Docker отброшен из-за скачка часов VM; использован отдельный повторный прогон.",
+    "Текущий план PostgreSQL использует Bitmap Index Scan и Sort. Старый подтверждённый Index Scan сохранён отдельно."
+  ],
+  "http_under_slow_push": {
+    "GET trip": {
+      "requests": 15,
+      "max_ms": 9.952
+    },
+    "GET positions": {
+      "requests": 15,
+      "max_ms": 9.598
+    },
+    "POST position": {
+      "requests": 15,
+      "max_ms": 13.824
+    },
+    "sigterm_s": 5.66
+  }
+}

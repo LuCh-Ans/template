@@ -1,0 +1,36 @@
+{
+  "run_id": "lab03-live-9c7228d73589",
+  "interval": {
+    "active_trips": 200,
+    "push_latency_ms": 5000,
+    "duration_s": 151.42,
+    "dropped_checks": 5448.0,
+    "push_errors": 282.0,
+    "queue_sample": [
+      6.0
+    ],
+    "workers_sample": [
+      2.0
+    ],
+    "ready_latency_max_ms": 10.31,
+    "rss_min_mib": 49.78,
+    "rss_max_mib": 79.94,
+    "rss_last_mib": 54.2,
+    "instance": "lab03-live-9c7228d73589-load",
+    "from_epoch": 1795563149.722312,
+    "to_epoch": 1795563301.144821,
+    "sigterm_s": 3.685,
+    "queue_peak": 8.0,
+    "workers_peak": 2.0
+  },
+  "queue": {
+    "min": 0.0,
+    "max": 8.0,
+    "samples": 149
+  },
+  "workers": {
+    "min": 0.0,
+    "max": 2.0,
+    "samples": 149
+  }
+}

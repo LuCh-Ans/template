@@ -1,0 +1,15 @@
+Sort  (cost=51.99..52.04 rows=17 width=40) (actual time=0.038..0.038 rows=10 loops=1)
+  Sort Key: (COALESCE(last_position_at, started_at)), id
+  Sort Method: quicksort  Memory: 25kB
+  Buffers: shared hit=8
+  ->  Bitmap Heap Scan on trips  (cost=4.28..51.65 rows=17 width=40) (actual time=0.011..0.013 rows=10 loops=1)
+        Recheck Cond: ((COALESCE(last_position_at, started_at) < (now() - '00:01:00'::interval)) AND (status = 'active'::text))
+        Heap Blocks: exact=1
+        Buffers: shared hit=2
+        ->  Bitmap Index Scan on trips_active_position_age_idx  (cost=0.00..4.27 rows=17 width=0) (actual time=0.008..0.008 rows=10 loops=1)
+              Index Cond: (COALESCE(last_position_at, started_at) < (now() - '00:01:00'::interval))
+              Buffers: shared hit=1
+Planning:
+  Buffers: shared hit=161
+Planning Time: 0.553 ms
+Execution Time: 0.071 ms

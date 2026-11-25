@@ -1,0 +1,9 @@
+6000 поездок: завершённых 5950, активных со свежей координатой 40, активных без координат 10. Порог 60 секунд.
+
+Index Scan using trips_active_position_age_idx on trips  (cost=0.14..34.69 rows=17 width=40) (actual time=0.012..0.014 rows=10 loops=1)
+  Index Cond: (COALESCE(last_position_at, started_at) < (now() - '00:01:00'::interval))
+  Buffers: shared hit=2
+Planning:
+  Buffers: shared hit=163
+Planning Time: 0.638 ms
+Execution Time: 0.028 ms

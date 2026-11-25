@@ -1,0 +1,39 @@
+{
+  "spans": [
+    {
+      "name": "push.request_position",
+      "trace_id": "c9367f3daa15fc038cb485e7c8ef436f",
+      "span_id": "4acda4cf6ac336d8",
+      "references": [
+        {
+          "refType": "CHILD_OF",
+          "traceID": "c9367f3daa15fc038cb485e7c8ef436f",
+          "spanID": "c3714454b09db3dc"
+        }
+      ],
+      "tags": {
+        "error.type": "*push.TransportError",
+        "http.request.method": "POST",
+        "request_id": "45e0602d-7c51-47b5-9166-d1366a04dcd7",
+        "otel.status_code": "ERROR"
+      }
+    },
+    {
+      "name": "positions.request",
+      "trace_id": "c9367f3daa15fc038cb485e7c8ef436f",
+      "span_id": "c3714454b09db3dc",
+      "references": [
+        {
+          "refType": "FOLLOWS_FROM",
+          "traceID": "ccb3996e2df7996d202f0f9d31d23a10",
+          "spanID": "ba19819e32931928"
+        }
+      ],
+      "tags": {
+        "request_id": "45e0602d-7c51-47b5-9166-d1366a04dcd7",
+        "trip_id": "009cd90a-6ce2-4108-9d8d-f198086aed90",
+        "otel.status_code": "ERROR"
+      }
+    }
+  ]
+}

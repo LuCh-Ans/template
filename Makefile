@@ -44,6 +44,7 @@ docker-run:
 		-e HTTP_ADDR=:8080 \
 		-e DATABASE_URL="$(subst localhost,host.docker.internal,$(DATABASE_URL))" \
 		-e OTEL_EXPORTER_OTLP_ENDPOINT="$(subst localhost,host.docker.internal,$(OTEL_EXPORTER_OTLP_ENDPOINT))" \
+		-e PUSH_HTTP_URL="$(subst localhost,host.docker.internal,$(PUSH_HTTP_URL))" \
 		$(IMAGE)
 
 lint:
